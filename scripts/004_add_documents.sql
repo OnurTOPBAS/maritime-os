@@ -22,8 +22,8 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 -- Indexes for faster queries
-CREATE INDEX idx_documents_ship ON documents(ship_id);
-CREATE INDEX idx_documents_fixture ON documents(fixture_id);
-CREATE INDEX idx_documents_invoice ON documents(invoice_id);
-CREATE INDEX idx_documents_category ON documents(category);
-CREATE INDEX idx_documents_uploaded_by ON documents(uploaded_by);
+CREATE INDEX IF NOT EXISTS idx_documents_ship ON documents(ship_id);
+CREATE INDEX IF NOT EXISTS idx_documents_fixture ON documents(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_documents_invoice ON documents(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_documents_category ON documents(category);
+CREATE INDEX IF NOT EXISTS idx_documents_uploaded_by ON documents(uploaded_by);

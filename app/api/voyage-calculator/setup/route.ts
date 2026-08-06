@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function POST() {
   try {
-    console.log("[v0] Starting voyage calculator setup...")
+    // Bu uç nokta veritabanı şeması oluşturur (DDL). Önceden kimlik
+    // doğrulaması yoktu: internetteki herkes çağırabiliyordu.
+    // Şema normalde scripts/ altındaki migration'larla yönetilir.
+    const user = await requireAuth()
+    await requireSystemAdmin(user.id)
+
 
     // Execute each CREATE TABLE statement separately
     const statements = [
@@ -111,14 +119,12 @@ export async function POST() {
       await sql.unsafe(statement)
     }
 
-    console.log("[v0] Voyage calculator tables created successfully")
 
     return NextResponse.json({
       success: true,
       message: "Voyage calculator tables created successfully",
     })
-  } catch (error: any) {
-    console.error("[v0] Error setting up voyage calculator:", error)
-    return NextResponse.json({ error: error.message || "Setup failed" }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Sefer hesaplayıcı kurulumu")
   }
 }

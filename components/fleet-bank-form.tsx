@@ -7,20 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import type { FleetBank, FleetBankInput } from "@/types/models"
 
-interface FleetBank {
-  id?: string
-  fleet_id?: string
-  bank_name: string
-  bank_code?: string
-  swift_code?: string
-  branch_name?: string
-  branch_address?: string
-  relationship_manager_name?: string
-  relationship_manager_email?: string
-  relationship_manager_phone?: string
-  notes?: string
-}
 
 interface FleetBankFormProps {
   fleetId: string
@@ -30,7 +18,7 @@ interface FleetBankFormProps {
 
 export function FleetBankForm({ fleetId, bank, onSuccess }: FleetBankFormProps) {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<FleetBank>({
+  const [formData, setFormData] = useState<FleetBankInput>({
     bank_name: bank?.bank_name || "",
     bank_code: bank?.bank_code || "",
     swift_code: bank?.swift_code || "",
@@ -69,7 +57,7 @@ export function FleetBankForm({ fleetId, bank, onSuccess }: FleetBankFormProps) 
 
       if (response.ok) {
         const data = await response.json()
-        onSuccess(data)
+        onSuccess(data as FleetBank)
       }
     } catch (error) {
       console.error("[v0] Bank form error:", error)

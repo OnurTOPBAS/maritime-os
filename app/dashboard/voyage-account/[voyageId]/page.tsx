@@ -1,5 +1,11 @@
 import { VoyageAccountDetail } from "@/components/voyage-account-detail"
 
-export default function VoyageAccountPage({ params }: { params: { voyageId: string } }) {
-  return <VoyageAccountDetail voyageId={params.voyageId} />
+export default async function VoyageAccountPage({
+  params,
+}: {
+  params: Promise<{ voyageId: string }>
+}) {
+  const { voyageId } = await params
+
+  return <VoyageAccountDetail voyageId={voyageId} />
 }

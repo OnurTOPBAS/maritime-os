@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
 import { checkPermission } from "@/lib/permissions"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 async function logCertificateAudit(
   certificateId: string,
@@ -108,18 +107,12 @@ async function createCertificateVersion(certificateId: string, certificateData: 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string; certificateId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string; certificateId: string }> }) {
   try {
     const user = await requireAuth()
-    const { certificateId } = params
+    const { certificateId } = await params
     const data = await request.json()
 
-    console.log("[v0] Updating certificate with dates:", {
-      issued_date: data.issued_date,
-      expires_date: data.expires_date,
-      last_annual_date: data.last_annual_date,
-      last_intermediate_date: data.last_intermediate_date,
-    })
 
     // Get certificate's company to check permissions
     const certResult = await sql`
@@ -136,15 +129,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     const companyId = certResult[0].company_id
 
-    console.log("[v0] Checking permissions:", {
-      userId: user.id,
-      companyId,
-      certificateId,
-    })
 
     const canEdit = await checkPermission(user.id, companyId, "canEdit")
 
-    console.log("[v0] Permission check result:", { canEdit })
 
     if (!canEdit) {
       console.error("[v0] Permission denied for user:", {
@@ -191,12 +178,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     await logCertificateAudit(certificateId, user.id, "updated", previousValues, result[0], request)
     await createCertificateVersion(certificateId, result[0], user.id)
 
-    console.log("[v0] Certificate updated with dates:", {
-      issued_date: result[0].issued_date,
-      expires_date: result[0].expires_date,
-      last_annual_date: result[0].last_annual_date,
-      last_intermediate_date: result[0].last_intermediate_date,
-    })
 
     return NextResponse.json(result[0])
   } catch (error) {
@@ -205,10 +186,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string; certificateId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string; certificateId: string }> }) {
   try {
     const user = await requireAuth()
-    const { certificateId } = params
+    const { certificateId } = await params
 
     // Get certificate's company to check permissions
     const certResult = await sql`
@@ -225,15 +206,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     const companyId = certResult[0].company_id
 
-    console.log("[v0] Checking permissions:", {
-      userId: user.id,
-      companyId,
-      certificateId,
-    })
 
     const canDelete = await checkPermission(user.id, companyId, "canDelete")
 
-    console.log("[v0] Permission check result:", { canDelete })
 
     if (!canDelete) {
       console.error("[v0] Permission denied for user:", {

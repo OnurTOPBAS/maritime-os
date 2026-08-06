@@ -1,16 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
+import { updateVoyageTotals } from "@/lib/voyage-totals"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function PUT(request: NextRequest, { params }: { params: { voyageId: string; activityId: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; activityId: string }> },
+) {
   try {
-    await requireAuth()
-    const { voyageId, activityId } = params
+    const user = await requireAuth()
+    const { voyageId, activityId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canEdit")
+
     const body = await request.json()
 
-    // Calculate fuel consumption
     const foConsumption = (body.fo_rate || 0) * body.days
     const mgoConsumption = (body.mgo_rate || 0) * body.days
 
@@ -29,89 +34,42 @@ export async function PUT(request: NextRequest, { params }: { params: { voyageId
       RETURNING *
     `
 
-    // Update voyage totals
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Faaliyet kaydı bulunamadı" }, { status: 404 })
+    }
+
     await updateVoyageTotals(voyageId)
 
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Update voyage activity error:", error)
-    return NextResponse.json({ error: "Failed to update voyage activity" }, { status: 500 })
+    return handleApiError(error, "Sefer faaliyeti güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { voyageId: string; activityId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; activityId: string }> },
+) {
   try {
-    await requireAuth()
-    const { voyageId, activityId } = params
+    const user = await requireAuth()
+    const { voyageId, activityId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canDelete")
 
-    await sql`DELETE FROM voyage_activities WHERE id = ${activityId}`
+    // voyage_id koşulu olmadan başka bir sefere ait faaliyet silinebilirdi.
+    const result = await sql`
+      DELETE FROM voyage_activities
+      WHERE id = ${activityId} AND voyage_id = ${voyageId}
+      RETURNING id
+    `
 
-    // Update voyage totals
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Faaliyet kaydı bulunamadı" }, { status: 404 })
+    }
+
     await updateVoyageTotals(voyageId)
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete voyage activity error:", error)
-    return NextResponse.json({ error: "Failed to delete voyage activity" }, { status: 500 })
+    return handleApiError(error, "Sefer faaliyeti silme")
   }
-}
-
-async function updateVoyageTotals(voyageId: string) {
-  const activities = await sql`
-    SELECT 
-      COALESCE(SUM(days), 0) as total_days,
-      COALESCE(SUM(fo_consumption), 0) as total_fo,
-      COALESCE(SUM(mgo_consumption), 0) as total_mgo
-    FROM voyage_activities
-    WHERE voyage_id = ${voyageId}
-  `
-
-  const { total_days, total_fo, total_mgo } = activities[0]
-
-  const bunkerPrices = await sql`
-    SELECT fo_price, mgo_price
-    FROM voyage_bunker_prices
-    WHERE voyage_id = ${voyageId}
-    ORDER BY price_date DESC
-    LIMIT 1
-  `
-
-  const foPrice = bunkerPrices[0]?.fo_price || 0
-  const mgoPrice = bunkerPrices[0]?.mgo_price || 0
-  const totalFuelCost = total_fo * foPrice + total_mgo * mgoPrice
-
-  const voyage = await sql`SELECT daily_running_cost FROM voyages WHERE id = ${voyageId}`
-  const dailyRunningCost = voyage[0]?.daily_running_cost || 0
-  const totalRunningCost = total_days * dailyRunningCost
-
-  const costs = await sql`
-    SELECT COALESCE(SUM(amount), 0) as total_other_costs
-    FROM voyage_cost_items
-    WHERE voyage_id = ${voyageId}
-  `
-
-  const totalCost = totalFuelCost + totalRunningCost + Number(costs[0].total_other_costs)
-
-  const revenues = await sql`
-    SELECT COALESCE(SUM(amount), 0) as total_revenue
-    FROM voyage_revenue_items
-    WHERE voyage_id = ${voyageId}
-  `
-
-  const totalRevenue = Number(revenues[0].total_revenue)
-  const netProfit = totalRevenue - totalCost
-
-  await sql`
-    UPDATE voyages
-    SET total_days = ${total_days},
-        total_fo_consumption = ${total_fo},
-        total_mgo_consumption = ${total_mgo},
-        total_fuel_cost = ${totalFuelCost},
-        total_running_cost = ${totalRunningCost},
-        total_cost = ${totalCost},
-        total_revenue = ${totalRevenue},
-        net_profit = ${netProfit},
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = ${voyageId}
-  `
 }

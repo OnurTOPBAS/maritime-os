@@ -33,7 +33,7 @@ interface RouteLeg {
 }
 
 interface Port {
-  uuid: string
+  id: string
   port_name: string
   country_iso: string
   country_name: string
@@ -63,36 +63,34 @@ export function VoyageCalculatorStep2({ calculationId, calculation, onComplete }
   }, [calculationId])
 
   useEffect(() => {
-    if (fromPortData && toPortData && fromPortData.uuid !== toPortData.uuid) {
+    if (fromPortData && toPortData && fromPortData.id !== toPortData.id) {
       calculateDistance(fromPortData, toPortData)
     }
   }, [fromPortData, toPortData])
 
   const calculateDistance = async (fromPort: Port, toPort: Port) => {
-    if (!fromPort || !toPort || fromPort.uuid === toPort.uuid) {
-      console.log("[v0] Skipping distance calculation - invalid ports")
+    if (!fromPort || !toPort || fromPort.id === toPort.id) {
       return
     }
 
     setCalculatingDistance(true)
-    console.log("[v0] Calculating distance from", fromPort.port_name, "to", toPort.port_name)
-    console.log("[v0] Using UUIDs:", fromPort.uuid, "to", toPort.uuid)
+    console.log("[v0] Using UUIDs:", fromPort.id, "to", toPort.id)
 
     try {
       const params = new URLSearchParams({
-        fromUuid: fromPort.uuid,
-        toUuid: toPort.uuid,
+        fromUuid: fromPort.id,
+        toUuid: toPort.id,
         fromUnlocode: fromPort.unlocode,
         toUnlocode: toPort.unlocode,
       })
 
+      // NOT: /api/datalastic/distance uç noktası projede TANIMLI DEĞİL.
+      // Bu çağrı 404 döner ve mesafe otomatik hesaplanamaz; kullanıcı
+      // mesafeyi elle girebilir. Uç nokta eklenene kadar özellik eksiktir.
       const response = await fetch(`/api/datalastic/distance?${params.toString()}`)
-
-      console.log("[v0] Distance API response status:", response.status)
 
       if (response.ok) {
         const data = await response.json()
-        console.log("[v0] Distance API response:", data)
 
         let distance = null
         if (data.distance_nm) {
@@ -268,7 +266,6 @@ export function VoyageCalculatorStep2({ calculationId, calculation, onComplete }
                   setFormData({ ...formData, from_port: portName })
                   if (portData) {
                     setFromPortData(portData)
-                    console.log("[v0] From port selected:", portData)
                   }
                 }}
                 placeholder="Örn: İstanbul"
@@ -281,7 +278,6 @@ export function VoyageCalculatorStep2({ calculationId, calculation, onComplete }
                   setFormData({ ...formData, to_port: portName })
                   if (portData) {
                     setToPortData(portData)
-                    console.log("[v0] To port selected:", portData)
                   }
                 }}
                 placeholder="Örn: Rotterdam"

@@ -2,7 +2,17 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-in-production")
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is not set")
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
+
+/**
+ * Kullanıcı oturumu yerine CRON_SECRET ile korunan zamanlanmış görev
+ * uç noktaları. Buraya eklenen her yol, kendi içinde yetkilendirme
+ * yapmak ZORUNDADIR.
+ */
+const CRON_ROUTES = new Set(["/api/notifications/send-reminders"])
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -14,6 +24,14 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/api/auth") ||
     pathname === "/"
   ) {
+    return NextResponse.next()
+  }
+
+  // Zamanlanmış görev (cron) uç noktaları: bunlar bir kullanıcı oturumuyla
+  // değil, CRON_SECRET gizli anahtarıyla çağrılır. Çerez kontrolüne takılıp
+  // giriş sayfasına yönlendirilirlerse görev hiç çalışamaz.
+  // Yetkilendirme rotanın kendi içinde yapılır.
+  if (CRON_ROUTES.has(pathname)) {
     return NextResponse.next()
   }
 

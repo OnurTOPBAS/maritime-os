@@ -1,21 +1,27 @@
 /**
- * Get the application URL automatically
- * Priority:
- * 1. NEXT_PUBLIC_APP_URL (if manually set)
- * 2. VERCEL_URL (automatically provided by Vercel)
- * 3. localhost:3000 (for local development)
+ * Uygulamanın dış adresini döndürür (davet ve şifre sıfırlama bağlantıları
+ * için kullanılır — yalnızca sunucu tarafında).
+ *
+ * Öncelik sırası:
+ *  1. APP_URL          — çalışma zamanında okunur; değişince yeniden derleme
+ *                        GEREKMEZ, sadece uygulamayı yeniden başlatmak yeter.
+ *  2. NEXT_PUBLIC_APP_URL — eski kurulumlarla uyumluluk için (derleme anında
+ *                        gömülür; değişince yeniden derleme gerekir).
+ *  3. VERCEL_URL       — Vercel dağıtımlarında otomatik gelir.
+ *  4. http://localhost:3000 — yerel geliştirme.
  */
 export function getAppUrl(): string {
-  // Check for manually set URL first
+  if (process.env.APP_URL) {
+    return process.env.APP_URL
+  }
+
   if (process.env.NEXT_PUBLIC_APP_URL) {
     return process.env.NEXT_PUBLIC_APP_URL
   }
 
-  // Check for Vercel URL (automatically provided in Vercel deployments)
   if (process.env.VERCEL_URL) {
     return `https://${process.env.VERCEL_URL}`
   }
 
-  // Fallback to localhost for local development
   return "http://localhost:3000"
 }

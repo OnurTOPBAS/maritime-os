@@ -34,5 +34,5 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
 );
 
 -- Create indexes
-CREATE INDEX idx_fleet_banks_fleet ON fleet_banks(fleet_id);
-CREATE INDEX idx_bank_accounts_bank ON bank_accounts(bank_id);
+CREATE INDEX IF NOT EXISTS idx_fleet_banks_fleet ON fleet_banks(fleet_id);
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_bank ON bank_accounts(bank_id);

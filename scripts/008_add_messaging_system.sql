@@ -96,6 +96,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_conversation_last_message ON messages;
 CREATE TRIGGER trigger_update_conversation_last_message
 AFTER INSERT ON messages
 FOR EACH ROW

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/session"
 import { sql } from "@/lib/db"
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -11,7 +11,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     await sql`
       DELETE FROM saved_filters
-      WHERE id = ${params.id} AND user_id = ${user.id}
+      WHERE id = ${(await params).id} AND user_id = ${user.id}
     `
 
     return NextResponse.json({ success: true })
@@ -21,7 +21,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   }
 }
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -34,7 +34,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     if (isDefault) {
       const existing = await sql`
         SELECT entity_type FROM saved_filters
-        WHERE id = ${params.id} AND user_id = ${user.id}
+        WHERE id = ${(await params).id} AND user_id = ${user.id}
       `
       if (existing.length > 0) {
         await sql`
@@ -48,7 +48,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     const updated = await sql`
       UPDATE saved_filters
       SET name = ${name}, filters = ${JSON.stringify(filters)}, is_default = ${isDefault || false}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${params.id} AND user_id = ${user.id}
+      WHERE id = ${(await params).id} AND user_id = ${user.id}
       RETURNING *
     `
 

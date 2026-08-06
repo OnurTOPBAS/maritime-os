@@ -271,7 +271,7 @@ export default function DashboardPage() {
     activity: (
       <div key="activity" className="h-full">
         <h2 className="text-2xl font-semibold mb-4">Son Aktiviteler</h2>
-        <RecentActivity fixtures={data.fixtures.slice(0, 5)} voyages={data.voyages.slice(0, 5)} />
+        <RecentActivity companies={data.companies} fixtures={data.fixtures.slice(0, 5)} />
       </div>
     ),
     financial: (

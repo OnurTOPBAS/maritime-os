@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
 import { checkPermission } from "@/lib/permissions"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 async function logCertificateAudit(
   certificateId: string,
@@ -108,10 +107,10 @@ async function createCertificateVersion(certificateId: string, certificateData: 
   }
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const shipId = params.id
+    const shipId = (await params).id
 
     // Get ship's company to check permissions
     const shipResult = await sql`
@@ -146,18 +145,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const shipId = params.id
+    const shipId = (await params).id
     const data = await request.json()
 
-    console.log("[v0] Creating certificate with dates:", {
-      issued_date: data.issued_date,
-      expires_date: data.expires_date,
-      last_annual_date: data.last_annual_date,
-      last_intermediate_date: data.last_intermediate_date,
-    })
 
     // Get ship's company to check permissions
     const shipResult = await sql`
@@ -224,12 +217,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     await logCertificateAudit(result[0].id, user.id, "created", null, result[0], request)
     await createCertificateVersion(result[0].id, result[0], user.id)
 
-    console.log("[v0] Certificate created with dates:", {
-      issued_date: result[0].issued_date,
-      expires_date: result[0].expires_date,
-      last_annual_date: result[0].last_annual_date,
-      last_intermediate_date: result[0].last_intermediate_date,
-    })
 
     return NextResponse.json(result[0])
   } catch (error) {

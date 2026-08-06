@@ -31,8 +31,10 @@ interface User {
 }
 
 interface Role {
-  id: string
+  /** Koda bağlanan sabit tanımlayıcı; role_permissions eşlemesi bunu kullanır. */
+  slug: string
   name: string
+  description: string | null
 }
 
 interface UserManagementProps {
@@ -50,7 +52,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
     name: "",
     email: "",
     password: "",
-    roleId: "viewer",
+    role: "viewer",
   })
   const [roles, setRoles] = useState<Role[]>([])
 
@@ -75,7 +77,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
   }
 
   const loadRoles = async () => {
-    const response = await fetch("/api/roles")
+    const response = await fetch("/api/roles/assignable")
     if (response.ok) {
       const data = await response.json()
       setRoles(data)
@@ -104,7 +106,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
           name: "",
           email: "",
           password: "",
-          roleId: "viewer",
+          role: "viewer",
         })
         loadUsers()
       } else {
@@ -137,7 +139,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
           name: "",
           email: "",
           password: "",
-          roleId: "viewer",
+          role: "viewer",
         })
         loadUsers()
       } else {
@@ -176,7 +178,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
       name: user.name,
       email: user.email,
       password: "",
-      roleId: user.permission_role,
+      role: user.permission_role,
     })
     setIsEditDialogOpen(true)
   }
@@ -310,8 +312,8 @@ export function UserManagement({ companyId }: UserManagementProps) {
                 <div>
                   <Label htmlFor="role">Rol *</Label>
                   <Select
-                    value={formData.roleId}
-                    onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                    value={formData.role}
+                    onValueChange={(value) => setFormData({ ...formData, role: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Rol seçin" />
@@ -321,7 +323,7 @@ export function UserManagement({ companyId }: UserManagementProps) {
                         <SelectItem value="viewer">Viewer (Varsayılan)</SelectItem>
                       ) : (
                         roles.map((role) => (
-                          <SelectItem key={role.id} value={role.id}>
+                          <SelectItem key={role.slug} value={role.slug}>
                             {role.name}
                           </SelectItem>
                         ))
@@ -376,15 +378,15 @@ export function UserManagement({ companyId }: UserManagementProps) {
                 <div>
                   <Label htmlFor="edit-role">Rol</Label>
                   <Select
-                    value={formData.roleId}
-                    onValueChange={(value) => setFormData({ ...formData, roleId: value })}
+                    value={formData.role}
+                    onValueChange={(value) => setFormData({ ...formData, role: value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Rol seçin" />
                     </SelectTrigger>
                     <SelectContent>
                       {roles.map((role) => (
-                        <SelectItem key={role.id} value={role.id}>
+                        <SelectItem key={role.slug} value={role.slug}>
                           {role.name}
                         </SelectItem>
                       ))}

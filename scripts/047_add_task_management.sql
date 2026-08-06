@@ -95,6 +95,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_notify_task_assignment ON tasks;
 CREATE TRIGGER trigger_notify_task_assignment
 AFTER INSERT ON tasks
 FOR EACH ROW
@@ -142,6 +143,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_notify_task_status_change ON tasks;
 CREATE TRIGGER trigger_notify_task_status_change
 AFTER UPDATE ON tasks
 FOR EACH ROW
@@ -193,6 +195,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_notify_task_comment ON task_comments;
 CREATE TRIGGER trigger_notify_task_comment
 AFTER INSERT ON task_comments
 FOR EACH ROW

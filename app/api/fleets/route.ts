@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { hasCompanyAccess } from "@/lib/auth"
+import { getAccessibleCompanyIds, canAccessCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: Request) {
   try {
@@ -9,50 +10,34 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get("companyId")
 
-    console.log("[v0] Fetching fleets:", { userId: user.id, companyId })
-
-    let targetCompanyId = companyId
-
-    if (!targetCompanyId) {
-      // Get user's company from users table or company ownership
-      const userCompanies = await sql`
-        SELECT c.id FROM companies c
-        WHERE c.owner_id = ${user.id}
-        UNION
-        SELECT ctm.company_id as id FROM company_team_members ctm
-        WHERE ctm.user_id = ${user.id}
-        LIMIT 1
-      `
-
-      if (userCompanies.length === 0) {
-        console.log("[v0] No company found for user:", user.id)
-        return NextResponse.json({ fleets: [] })
+    // Belirli bir şirket istendiyse ona erişim doğrulanır.
+    if (companyId) {
+      if (!(await canAccessCompany(user.id, companyId, "canView"))) {
+        return NextResponse.json({ error: "Şirket bulunamadı veya erişim yok" }, { status: 404 })
       }
 
-      targetCompanyId = userCompanies[0].id
-      console.log("[v0] Auto-detected companyId:", targetCompanyId)
+      const fleets = await sql`
+        SELECT * FROM fleets WHERE company_id = ${companyId} ORDER BY created_at DESC
+      `
+      return NextResponse.json({ fleets })
     }
 
-    const hasAccess = await hasCompanyAccess(user.id, targetCompanyId)
-
-    console.log("[v0] Fleet access check:", { userId: user.id, companyId: targetCompanyId, hasAccess })
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Company not found or access denied" }, { status: 404 })
+    // Şirket belirtilmediyse kullanıcının eriştiği TÜM şirketlerin filoları
+    // döner. Önceki kod LIMIT 1 ile rastgele tek şirket seçiyordu; birden
+    // fazla şirketi olan kullanıcı diğer filolarını hiç göremiyordu.
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json({ fleets: [] })
     }
 
     const fleets = await sql`
-      SELECT * FROM fleets 
-      WHERE company_id = ${targetCompanyId}
+      SELECT * FROM fleets
+      WHERE company_id = ANY(${allowedCompanyIds}::uuid[])
       ORDER BY created_at DESC
     `
-
-    console.log("[v0] Fleets fetched:", { count: fleets.length })
-
     return NextResponse.json({ fleets })
   } catch (error) {
-    console.error("[v0] Get fleets error:", error)
-    return NextResponse.json({ error: "Failed to fetch fleets" }, { status: 500 })
+    return handleApiError(error, "Filo listesi")
   }
 }
 
@@ -62,12 +47,12 @@ export async function POST(request: Request) {
     const { company_id, name, description } = await request.json()
 
     if (!company_id || !name) {
-      return NextResponse.json({ error: "Company ID and name are required" }, { status: 400 })
+      return NextResponse.json({ error: "Şirket ve filo adı zorunludur" }, { status: 400 })
     }
 
-    const hasAccess = await hasCompanyAccess(user.id, company_id)
-    if (!hasAccess) {
-      return NextResponse.json({ error: "Company not found" }, { status: 404 })
+    // Filo eklemek bir yazma işlemidir: viewer yapamaz.
+    if (!(await canAccessCompany(user.id, company_id, "canCreate"))) {
+      return NextResponse.json({ error: "Şirket bulunamadı veya erişim yok" }, { status: 404 })
     }
 
     const newFleets = await sql`
@@ -78,7 +63,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ fleet: newFleets[0] }, { status: 201 })
   } catch (error) {
-    console.error("[v0] Create fleet error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Filo oluşturma")
   }
 }

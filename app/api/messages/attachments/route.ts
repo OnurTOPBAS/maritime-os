@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { put } from "@vercel/blob"
+import { saveFile } from "@/lib/storage"
 import { getCurrentUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
@@ -16,16 +16,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`messages/${user.id}/${Date.now()}-${file.name}`, file, {
-      access: "public",
-    })
+    // Sunucu diskine kaydedilir.
+    const saved = await saveFile("messages", user.id, file)
 
     return NextResponse.json({
-      url: blob.url,
+      url: saved.url,
       name: file.name,
-      size: file.size,
-      type: file.type,
+      size: saved.size,
+      type: saved.type,
     })
   } catch (error) {
     console.error("[v0] Error uploading file:", error)

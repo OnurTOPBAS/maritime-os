@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getSession } from "@/lib/session"
+import { type NextRequest, NextResponse } from "next/server"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
+/** Ücret kodları tüm şirketlerce paylaşılan referans verisidir. */
 export async function GET() {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    await requireAuth()
 
     const feeCodes = await sql`
       SELECT * FROM office_fee_codes
@@ -17,35 +15,31 @@ export async function GET() {
     `
 
     return NextResponse.json(feeCodes)
-  } catch (error: any) {
-    console.error("Error fetching fee codes:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Ücret kodları")
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    // Paylaşılan referans verisini değiştirmek tüm şirketleri etkiler.
+    await requireSystemAdmin(user.id)
 
-    const body = await request.json()
-    const { name } = body
+    const { name } = await request.json()
 
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 })
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      return NextResponse.json({ error: "Ad zorunludur" }, { status: 400 })
     }
 
     const result = await sql`
       INSERT INTO office_fee_codes (name, is_system)
-      VALUES (${name}, false)
+      VALUES (${name.trim()}, false)
       RETURNING *
     `
 
     return NextResponse.json(result[0], { status: 201 })
-  } catch (error: any) {
-    console.error("Error creating fee code:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Ücret kodu oluşturma")
   }
 }

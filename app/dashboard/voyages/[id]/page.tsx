@@ -1,21 +1,20 @@
 import { redirect } from "next/navigation"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VoyageDetailView } from "@/components/voyage-detail-view"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   return uuidRegex.test(id)
 }
 
-export default async function VoyagePage({ params }: { params: { id: string } }) {
+export default async function VoyagePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
   if (!user) redirect("/auth/signin")
 
-  if (!isValidUUID(params.id)) {
+  if (!isValidUUID((await params).id)) {
     redirect("/dashboard/voyages")
   }
 
@@ -37,7 +36,7 @@ export default async function VoyagePage({ params }: { params: { id: string } })
     JOIN fleets fl ON s.fleet_id = fl.id
     JOIN companies c ON fl.company_id = c.id
     LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-    WHERE v.id = ${params.id} 
+    WHERE v.id = ${(await params).id} 
     AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
   `
 

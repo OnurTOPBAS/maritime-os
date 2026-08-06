@@ -1,30 +1,29 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
 import { logActivity } from "@/lib/audit-logger"
+import { sql } from "@/lib/db"
+import { requireResourceAccess, resolveInvoiceCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const { id } = params
+    const { id } = await params
+
+
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveInvoiceCompany, id, "invoices", "view", "Fatura bulunamadı")
 
     const result = await sql`
-      SELECT i.*, 
-        c.name as company_name,
-        f.fixture_ref as fixture_ref,
-        v.voyage_number as voyage_number
+      SELECT i.*, c.name as company_name
       FROM invoices i
       LEFT JOIN companies c ON i.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      LEFT JOIN fixtures f ON i.fixture_id = f.id
-      LEFT JOIN voyages v ON i.voyage_id = v.id
-      WHERE i.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
+      WHERE i.id = ${id}
     `
-
     if (result.length === 0) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
+      return NextResponse.json({ error: "Fatura bulunamadı" }, { status: 404 })
     }
 
     // Get payments for this invoice
@@ -33,29 +32,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     `
 
     return NextResponse.json({ ...result[0], payments })
-  } catch (error: any) {
-    console.error("[v0] Error fetching invoice:", error)
-    return NextResponse.json({ error: error.message }, { status: error.status || 500 })
+  } catch (error) {
+    return handleApiError(error, "Fatura getirme")
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
 
     const oldData = await sql`SELECT * FROM invoices WHERE id = ${id}`
 
-    const existing = await sql`
-      SELECT i.id FROM invoices i
-      JOIN companies c ON i.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE i.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-    if (existing.length === 0) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
-    }
+
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveInvoiceCompany, id, "invoices", "edit", "Fatura bulunamadı")
 
     const {
       fixtureId,
@@ -116,28 +109,22 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     })
 
     return NextResponse.json(result[0])
-  } catch (error: any) {
-    console.error("[v0] Error updating invoice:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Fatura güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const { id } = params
+    const { id } = await params
 
     const oldData = await sql`SELECT * FROM invoices WHERE id = ${id}`
 
-    const existing = await sql`
-      SELECT i.id FROM invoices i
-      JOIN companies c ON i.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE i.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-    if (existing.length === 0) {
-      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
-    }
+
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveInvoiceCompany, id, "invoices", "delete", "Fatura bulunamadı")
 
     await sql`DELETE FROM invoices WHERE id = ${id}`
 
@@ -150,8 +137,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     })
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error("[v0] Error deleting invoice:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Fatura silme")
   }
 }

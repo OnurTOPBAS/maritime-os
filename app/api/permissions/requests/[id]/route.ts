@@ -1,10 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/session"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -25,7 +24,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         reviewed_by = ${user.id},
         reviewed_at = CURRENT_TIMESTAMP,
         review_notes = ${reviewNotes || null}
-      WHERE id = ${params.id}
+      WHERE id = ${(await params).id}
       RETURNING *
     `
 

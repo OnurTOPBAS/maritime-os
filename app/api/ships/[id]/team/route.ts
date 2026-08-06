@@ -2,10 +2,10 @@ import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const shipId = params.id
+    const shipId = (await params).id
 
     // Get the company_id for this ship through fleet
     const shipData = await sql`

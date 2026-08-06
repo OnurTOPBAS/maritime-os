@@ -7,13 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import type { Fleet } from "@/types/models"
 
-interface Fleet {
-  id?: string
-  company_id?: string
-  name: string
-  description: string
-}
 
 interface FleetFormProps {
   companyId: string

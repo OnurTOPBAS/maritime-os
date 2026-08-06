@@ -1,46 +1,28 @@
-import { put } from "@vercel/blob"
 import { type NextRequest, NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
+import { validateUpload } from "@/lib/upload-validation"
+import { saveFile } from "@/lib/storage"
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const formData = await request.formData()
-    const file = formData.get("file") as File
+    const file = formData.get("file") as File | null
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: "Dosya gönderilmedi" }, { status: 400 })
     }
 
-    // Validate file size (2MB max)
-    if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: "File size must be less than 2MB" }, { status: 400 })
-    }
+    // Önceden yalnızca file.type.startsWith("image/") kontrol ediliyordu;
+    // bu, image/svg+xml gibi betik çalıştırabilen türlere izin veriyordu.
+    validateUpload(file, "signature")
 
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "Only image files are allowed" }, { status: 400 })
-    }
+    const saved = await saveFile("signatures", user.id, file)
 
-    console.log("[v0] Uploading signature:", file.name, file.size, "for user:", user.id)
-
-    // Upload to Vercel Blob
-    const blob = await put(`signatures/${user.id}-${Date.now()}-${file.name}`, file, {
-      access: "public",
-    })
-
-    console.log("[v0] Signature uploaded successfully:", blob.url)
-
-    return NextResponse.json({ url: blob.url })
+    return NextResponse.json({ url: saved.url })
   } catch (error) {
-    console.error("[v0] Error uploading signature:", error)
-    return NextResponse.json(
-      { error: "Failed to upload signature: " + (error instanceof Error ? error.message : "Unknown error") },
-      { status: 500 },
-    )
+    return handleApiError(error, "İmza yükleme")
   }
 }

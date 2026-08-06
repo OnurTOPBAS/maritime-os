@@ -1,10 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
+    // Referans verisi olsa da oturum aranır; herkese açık kalmamalı.
+    await requireAuth()
     const { searchParams } = new URL(request.url)
     const vesselType = searchParams.get("vesselType")
 
@@ -27,7 +30,6 @@ export async function GET(request: NextRequest) {
     const result = await query
     return NextResponse.json(result)
   } catch (error) {
-    console.error("[v0] Get certificate requirements error:", error)
-    return NextResponse.json({ error: "Failed to get certificate requirements" }, { status: 500 })
+    return handleApiError(error, "Sertifika gereklilikleri")
   }
 }

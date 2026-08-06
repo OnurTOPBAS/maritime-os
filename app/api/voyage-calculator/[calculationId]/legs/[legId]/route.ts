@@ -1,9 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireCalculationOwner } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-export async function PUT(request: NextRequest, { params }: { params: { calculationId: string; legId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ calculationId: string; legId: string }> }) {
   try {
-    const { calculationId, legId } = params
+    const user = await requireAuth()
+    const { calculationId, legId } = await params
+    await requireCalculationOwner(user.id, calculationId)
     const body = await request.json()
     const { from_port, to_port, distance_nm, leg_condition } = body
 
@@ -50,14 +55,15 @@ export async function PUT(request: NextRequest, { params }: { params: { calculat
 
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Error updating voyage leg:", error)
-    return NextResponse.json({ error: "Failed to update leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacağı")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { calculationId: string; legId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ calculationId: string; legId: string }> }) {
   try {
-    const { calculationId, legId } = params
+    const user = await requireAuth()
+    const { calculationId, legId } = await params
+    await requireCalculationOwner(user.id, calculationId)
 
     await sql`
       DELETE FROM voyage_calc_legs
@@ -76,7 +82,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { calcu
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Error deleting voyage leg:", error)
-    return NextResponse.json({ error: "Failed to delete leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacağı")
   }
 }

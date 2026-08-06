@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS company_team_members (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_team_members_company ON company_team_members(company_id);
-CREATE INDEX idx_team_members_user ON company_team_members(user_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_company ON company_team_members(company_id);
+CREATE INDEX IF NOT EXISTS idx_team_members_user ON company_team_members(user_id);
 
 -- Add role column to users table if it doesn't exist
 DO $$ 

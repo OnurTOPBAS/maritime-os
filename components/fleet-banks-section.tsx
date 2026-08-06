@@ -9,32 +9,9 @@ import { FleetBankForm } from "@/components/fleet-bank-form"
 import { BankAccountForm } from "@/components/bank-account-form"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import type { FleetBank, BankAccount } from "@/types/models"
 
-interface BankAccount {
-  id: string
-  account_name: string
-  account_number: string
-  currency: string
-  iban?: string
-  account_type?: string
-  is_active: boolean
-  notes?: string
-}
 
-interface FleetBank {
-  id: string
-  fleet_id: string
-  bank_name: string
-  bank_code?: string
-  swift_code?: string
-  branch_name?: string
-  branch_address?: string
-  relationship_manager_name?: string
-  relationship_manager_email?: string
-  relationship_manager_phone?: string
-  notes?: string
-  accounts?: BankAccount[]
-}
 
 interface FleetBanksSectionProps {
   fleetId: string

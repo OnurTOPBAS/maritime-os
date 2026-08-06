@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireResourceAccess, resolveBankAccountCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,20 +10,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const body = await request.json()
 
-    // Check access
-    const accounts = await sql`
-      SELECT ba.id
-      FROM bank_accounts ba
-      JOIN fleet_banks fb ON ba.bank_id = fb.id
-      JOIN fleets f ON fb.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE ba.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (accounts.length === 0) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveBankAccountCompany, id, "finance", "edit", "Hesap bulunamadı")
 
     const result = await sql`
       UPDATE bank_accounts
@@ -50,20 +41,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const user = await requireAuth()
     const { id } = await params
 
-    // Check access
-    const accounts = await sql`
-      SELECT ba.id
-      FROM bank_accounts ba
-      JOIN fleet_banks fb ON ba.bank_id = fb.id
-      JOIN fleets f ON fb.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE ba.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (accounts.length === 0) {
-      return NextResponse.json({ error: "Account not found" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveBankAccountCompany, id, "finance", "delete", "Hesap bulunamadı")
 
     await sql`DELETE FROM bank_accounts WHERE id = ${id}`
 

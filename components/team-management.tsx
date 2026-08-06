@@ -47,6 +47,15 @@ interface Invitation {
   expires: string
 }
 
+/** /api/roles/assignable yanıtı. */
+interface RoleOption {
+  slug: string
+  name: string
+  description: string | null
+  isSystem: boolean
+  permissionCount: number
+}
+
 interface TeamManagementProps {
   companyId: string
 }
@@ -55,6 +64,7 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [roles, setRoles] = useState<RoleOption[]>([])
   const [loading, setLoading] = useState(true)
   const [isAddMemberDialogOpen, setIsAddMemberDialogOpen] = useState(false)
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false)
@@ -75,9 +85,24 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
   const loadData = async () => {
     try {
       setLoading(true)
-      await Promise.all([loadTeamMembers(), loadAvailableUsers(), loadInvitations()])
+      await Promise.all([loadTeamMembers(), loadAvailableUsers(), loadInvitations(), loadRoles()])
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Roller veritabanından gelir; yeni rol tanımlandığında arayüz
+  // değişikliği gerekmeden listede görünür.
+  const loadRoles = async () => {
+    try {
+      const response = await fetch("/api/roles/assignable")
+      if (response.ok) {
+        const data = await response.json()
+        setRoles(Array.isArray(data) ? data : [])
+      }
+    } catch {
+      // Roller yüklenemezse açılır liste boş kalır; kullanıcıya
+      // yanlış bir rol seçtirmektense hiç seçenek göstermemek yeğdir.
     }
   }
 
@@ -159,6 +184,9 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
   }
 
   const handleUpdateRole = async (memberId: string, newRole: string) => {
+    setError("")
+    setMessage("")
+
     try {
       const response = await fetch(`/api/companies/${companyId}/team/${memberId}`, {
         method: "PUT",
@@ -166,11 +194,18 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
         body: JSON.stringify({ role: newRole }),
       })
 
-      if (response.ok) {
-        loadTeamMembers()
+      // Başarısız yanıt sessizce yutulmamalı; aksi halde kullanıcı rolün
+      // güncellendiğini sanır ama liste eski değeri göstermeye devam eder.
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        setError(data.error || "Rol güncellenemedi")
+        return
       }
-    } catch (error) {
-      console.error("Error updating role:", error)
+
+      setMessage("Rol güncellendi")
+      await loadTeamMembers()
+    } catch {
+      setError("Rol güncellenirken bir hata oluştu")
     }
   }
 
@@ -302,9 +337,11 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
+                            {roles.map((r) => (
+                              <SelectItem key={r.slug} value={r.slug}>
+                                {r.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -421,9 +458,16 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  {roles.map((r) => (
+                    <SelectItem key={r.slug} value={r.slug}>
+                      <span className="flex flex-col items-start">
+                        <span>{r.name}</span>
+                        {r.description ? (
+                          <span className="text-xs text-muted-foreground">{r.description}</span>
+                        ) : null}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -495,9 +539,16 @@ export function TeamManagement({ companyId }: TeamManagementProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="manager">Manager</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  {roles.map((r) => (
+                    <SelectItem key={r.slug} value={r.slug}>
+                      <span className="flex flex-col items-start">
+                        <span>{r.name}</span>
+                        {r.description ? (
+                          <span className="text-xs text-muted-foreground">{r.description}</span>
+                        ) : null}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

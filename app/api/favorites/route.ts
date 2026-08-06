@@ -1,98 +1,72 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
+/**
+ * Kullanıcının favori kayıtları.
+ *
+ * recent-items ile aynı iki sorun buradaydı: kendi API'sine HTTP isteği ve
+ * yanlış okunan kullanıcı kimliği (user.id daima undefined). İkisi de giderildi;
+ * ayrıca dinamik SQL metni yerine parametreli sorgular kullanılıyor.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const userRes = await fetch(`${request.nextUrl.origin}/api/auth/me`, {
-      headers: request.headers,
-    })
+    const user = await requireAuth()
+    const type = request.nextUrl.searchParams.get("type")
 
-    if (!userRes.ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await userRes.json()
-    const searchParams = request.nextUrl.searchParams
-    const type = searchParams.get("type")
-
-    let query = `
-      SELECT * FROM favorites 
-      WHERE user_id = $1
+    const favorites = await sql`
+      SELECT * FROM favorites
+      WHERE user_id = ${user.id}
+        AND (${type ?? null}::text IS NULL OR entity_type = ${type ?? null}::text)
+      ORDER BY created_at DESC
     `
-    const params: any[] = [user.id]
 
-    if (type) {
-      query += ` AND entity_type = $2`
-      params.push(type)
-    }
-
-    query += ` ORDER BY created_at DESC`
-
-    const favorites = await sql(query, params)
     return NextResponse.json(favorites)
   } catch (error) {
-    console.error("Error fetching favorites:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Favoriler")
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const userRes = await fetch(`${request.nextUrl.origin}/api/auth/me`, {
-      headers: request.headers,
-    })
+    const user = await requireAuth()
+    const { entityType, entityId } = await request.json()
 
-    if (!userRes.ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!entityType || !entityId) {
+      return NextResponse.json({ error: "entityType ve entityId zorunludur" }, { status: 400 })
     }
 
-    const user = await userRes.json()
-    const { entityType, entityId, entityName } = await request.json()
-
-    await sql(
-      `
+    await sql`
       INSERT INTO favorites (user_id, entity_type, entity_id)
-      VALUES ($1, $2, $3)
+      VALUES (${user.id}, ${entityType}, ${entityId})
       ON CONFLICT (user_id, entity_type, entity_id) DO NOTHING
-    `,
-      [user.id, entityType, entityId],
-    )
+    `
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true }, { status: 201 })
   } catch (error) {
-    console.error("Error adding favorite:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Favori ekleme")
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const userRes = await fetch(`${request.nextUrl.origin}/api/auth/me`, {
-      headers: request.headers,
-    })
-
-    if (!userRes.ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const user = await userRes.json()
+    const user = await requireAuth()
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get("type")
     const id = searchParams.get("id")
 
-    await sql(
-      `
-      DELETE FROM favorites 
-      WHERE user_id = $1 AND entity_type = $2 AND entity_id = $3
-    `,
-      [user.id, type, id],
-    )
+    if (!type || !id) {
+      return NextResponse.json({ error: "type ve id zorunludur" }, { status: 400 })
+    }
+
+    await sql`
+      DELETE FROM favorites
+      WHERE user_id = ${user.id} AND entity_type = ${type} AND entity_id = ${id}
+    `
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error removing favorite:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Favori silme")
   }
 }

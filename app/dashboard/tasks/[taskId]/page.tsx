@@ -39,6 +39,7 @@ export default function TaskDetailPage() {
   const [newComment, setNewComment] = useState("")
   const [loading, setLoading] = useState(true)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [uploadingFile, setUploadingFile] = useState(false)
   const [attachments, setAttachments] = useState<Array<{ url: string; name: string; size: number }>>([])
@@ -55,6 +56,7 @@ export default function TaskDetailPage() {
       if (res.ok) {
         const data = await res.json()
         setCurrentUserId(data.user?.id)
+        setUser(data.user ?? null)
       }
     } catch (error) {
       console.error("Error fetching current user:", error)
@@ -235,7 +237,7 @@ export default function TaskDetailPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout user={user ?? { name: "", email: "" }}>
         <div className="flex items-center justify-center h-96">
           <div className="text-muted-foreground">Yükleniyor...</div>
         </div>
@@ -245,7 +247,7 @@ export default function TaskDetailPage() {
 
   if (!task) {
     return (
-      <DashboardLayout>
+      <DashboardLayout user={user ?? { name: "", email: "" }}>
         <div className="flex flex-col items-center justify-center h-96 gap-4">
           <div className="text-muted-foreground">Görev bulunamadı</div>
           <Button onClick={() => router.push("/dashboard/tasks")}>
@@ -263,7 +265,7 @@ export default function TaskDetailPage() {
   const canEdit = isCreator
 
   return (
-    <DashboardLayout>
+    <DashboardLayout user={user ?? { name: "", email: "" }}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <Button variant="ghost" onClick={() => router.push("/dashboard/tasks")}>

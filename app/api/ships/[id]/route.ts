@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireShipAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { logActivity } from "@/lib/audit-logger"
 
 const isValidUUID = (id: string) => {
@@ -14,25 +16,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params
 
     if (!isValidUUID(id)) {
-      return NextResponse.json({ error: "Invalid ship ID format" }, { status: 400 })
+      return NextResponse.json({ error: "Geçersiz gemi kimliği" }, { status: 400 })
     }
 
-    const ships = await sql`
-      SELECT s.* FROM ships s
-      JOIN fleets f ON s.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE s.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
+    // Merkezi yetki katmanı hem user_permissions hem company_team_members
+    // tablolarına bakar. Önceki satır-içi sorgu yalnızca company_team_members'ı
+    // kontrol ediyordu; bu yüzden Kullanıcılar ekranından (user_permissions'a)
+    // eklenen üyeler gemiyi göremiyordu.
+    await requireShipAccess(user.id, id, "canView")
 
+    const ships = await sql`SELECT * FROM ships WHERE id = ${id}`
     if (ships.length === 0) {
-      return NextResponse.json({ error: "Ship not found" }, { status: 404 })
+      return NextResponse.json({ error: "Gemi bulunamadı" }, { status: 404 })
     }
 
     return NextResponse.json({ ship: ships[0] })
   } catch (error) {
-    console.error("[v0] Get ship error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Gemi getirme")
   }
 }
 
@@ -43,51 +43,52 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = await request.json()
 
     if (!isValidUUID(id)) {
-      return NextResponse.json({ error: "Invalid ship ID format" }, { status: 400 })
+      return NextResponse.json({ error: "Geçersiz gemi kimliği" }, { status: 400 })
     }
 
-    // Verify ownership
-    const ships = await sql`
-      SELECT s.id FROM ships s
-      JOIN fleets f ON s.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE s.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (ships.length === 0) {
-      return NextResponse.json({ error: "Ship not found" }, { status: 404 })
-    }
+    // Düzenleme yetkisi merkezi katmandan doğrulanır (viewer düzenleyemez).
+    await requireShipAccess(user.id, id, "canEdit")
 
     const oldData = await sql`SELECT * FROM ships WHERE id = ${id}`
+    const prev = oldData[0]
+
+    // KISMİ GÜNCELLEME: Yalnızca gönderilen alanlar değişir, gönderilmeyenler
+    // eski değerini korur. Önceden gövdede olmayan her alan için `undefined`
+    // yazılıyordu; postgres sürücüsü undefined'ı reddettiği için basit bir ad
+    // güncellemesi bile tüm isteği çökertiyordu.
+    const pick = (key: string) => (body[key] === undefined ? prev[key] : body[key])
+
+    // JSONB alanları: gönderildiyse serileştir, yoksa eskiyi olduğu gibi bırak.
+    const jsonb = (key: string) =>
+      body[key] === undefined ? prev[key] : body[key] ? JSON.stringify(body[key]) : null
 
     const result = await sql`
       UPDATE ships SET
-        name = ${body.name},
-        imo_number = ${body.imo_number},
-        flag = ${body.flag},
-        vessel_type = ${body.vessel_type},
-        dwt = ${body.dwt},
-        built_year = ${body.built_year},
-        status = ${body.status},
-        grt = ${body.grt},
-        nrt = ${body.nrt},
-        main_engine = ${body.main_engine},
-        engine_power = ${body.engine_power},
-        speed_laden = ${body.speed_laden},
-        speed_ballast = ${body.speed_ballast},
-        loa = ${body.loa},
-        beam = ${body.beam},
-        draft = ${body.draft},
-        current_position = ${body.current_position},
-        latitude = ${body.latitude},
-        longitude = ${body.longitude},
-        position_updated_at = ${body.position_updated_at},
-        consumption_operations = ${body.consumption_operations ? JSON.stringify(body.consumption_operations) : null}::jsonb,
-        consumption_laden_speed = ${body.consumption_laden_speed ? JSON.stringify(body.consumption_laden_speed) : null}::jsonb,
-        consumption_ballast_speed = ${body.consumption_ballast_speed ? JSON.stringify(body.consumption_ballast_speed) : null}::jsonb,
-        particulars_file_url = ${body.particulars_file_url || null},
-        fuel_consumption_file_url = ${body.fuel_consumption_file_url || null},
+        name = ${pick("name")},
+        imo_number = ${pick("imo_number")},
+        flag = ${pick("flag")},
+        vessel_type = ${pick("vessel_type")},
+        dwt = ${pick("dwt")},
+        built_year = ${pick("built_year")},
+        status = ${pick("status")},
+        grt = ${pick("grt")},
+        nrt = ${pick("nrt")},
+        main_engine = ${pick("main_engine")},
+        engine_power = ${pick("engine_power")},
+        speed_laden = ${pick("speed_laden")},
+        speed_ballast = ${pick("speed_ballast")},
+        loa = ${pick("loa")},
+        beam = ${pick("beam")},
+        draft = ${pick("draft")},
+        current_position = ${pick("current_position")},
+        latitude = ${pick("latitude")},
+        longitude = ${pick("longitude")},
+        position_updated_at = ${pick("position_updated_at")},
+        consumption_operations = ${jsonb("consumption_operations")}::jsonb,
+        consumption_laden_speed = ${jsonb("consumption_laden_speed")}::jsonb,
+        consumption_ballast_speed = ${jsonb("consumption_ballast_speed")}::jsonb,
+        particulars_file_url = ${pick("particulars_file_url")},
+        fuel_consumption_file_url = ${pick("fuel_consumption_file_url")},
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
       RETURNING *
@@ -103,8 +104,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json({ ship: result[0] })
   } catch (error) {
-    console.error("[v0] Update ship error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Gemi güncelleme")
   }
 }
 
@@ -114,21 +114,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = await params
 
     if (!isValidUUID(id)) {
-      return NextResponse.json({ error: "Invalid ship ID format" }, { status: 400 })
+      return NextResponse.json({ error: "Geçersiz gemi kimliği" }, { status: 400 })
     }
 
-    // Verify ownership through fleet and company
-    const ships = await sql`
-      SELECT s.id FROM ships s
-      JOIN fleets f ON s.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE s.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (ships.length === 0) {
-      return NextResponse.json({ error: "Ship not found" }, { status: 404 })
-    }
+    // Silme yetkisi merkezi katmandan doğrulanır (yalnızca admin siler).
+    await requireShipAccess(user.id, id, "canDelete")
 
     const oldData = await sql`SELECT * FROM ships WHERE id = ${id}`
 
@@ -144,7 +134,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete ship error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Gemi silme")
   }
 }

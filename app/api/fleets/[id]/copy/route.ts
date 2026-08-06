@@ -3,14 +3,14 @@ import { sql } from "@/lib/db"
 import { getCurrentUser } from "@/lib/session"
 import { logActivity } from "@/lib/audit-logger"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const fleetId = params.id
+    const fleetId = (await params).id
 
     // Get the original fleet with company ownership check
     const fleets = await sql`

@@ -9,6 +9,7 @@ import { FleetForm } from "@/components/fleet-form"
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TeamManagement } from "@/components/team-management"
+import type { Fleet } from "@/types/models"
 
 interface Company {
   id: string
@@ -19,13 +20,6 @@ interface Company {
   tax_number: string | null
 }
 
-interface Fleet {
-  id: string
-  company_id: string
-  name: string
-  description: string | null
-  created_at: string
-}
 
 interface CompanyDetailViewProps {
   company: Company

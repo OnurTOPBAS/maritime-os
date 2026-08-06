@@ -173,7 +173,7 @@ export function VoyageCalculatorDashboard({ calculations }: DashboardProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+              <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
               <Bar dataKey="profit" fill="#10b981" />
             </BarChart>
           </ResponsiveContainer>
@@ -187,7 +187,7 @@ export function VoyageCalculatorDashboard({ calculations }: DashboardProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="name" />
               <YAxis />
-              <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+              <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
               <Bar dataKey="profit" fill="#3b82f6" />
             </BarChart>
           </ResponsiveContainer>
@@ -203,7 +203,7 @@ export function VoyageCalculatorDashboard({ calculations }: DashboardProps) {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
               <YAxis />
-              <Tooltip formatter={(value: number) => `$${value.toLocaleString()}`} />
+              <Tooltip formatter={(value) => `$${Number(value).toLocaleString()}`} />
               <Legend />
               <Line type="monotone" dataKey="profit" stroke="#10b981" name="Kar" strokeWidth={2} />
               <Line type="monotone" dataKey="revenue" stroke="#3b82f6" name="Gelir" strokeWidth={2} />
@@ -226,7 +226,7 @@ export function VoyageCalculatorDashboard({ calculations }: DashboardProps) {
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+              label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(0)}%`}
               outerRadius={100}
               fill="#8884d8"
               dataKey="value"

@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS saved_filters (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_saved_filters_user ON saved_filters(user_id);
-CREATE INDEX idx_saved_filters_entity ON saved_filters(entity_type);
+CREATE INDEX IF NOT EXISTS idx_saved_filters_user ON saved_filters(user_id);
+CREATE INDEX IF NOT EXISTS idx_saved_filters_entity ON saved_filters(entity_type);

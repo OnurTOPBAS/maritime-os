@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET() {
   try {
@@ -183,7 +182,6 @@ export async function GET() {
         totalObservations: Number.parseInt(vettingResult[0]?.total_observations || "0"),
       }
     } catch (vettingError) {
-      console.log("[v0] Vetting stats not available yet:", vettingError)
       // Return default values if vetting table doesn't exist yet
     }
 

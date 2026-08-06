@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getSession } from "@/lib/session"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     // Fetch reports with calculated totals from office_pnl records
     const reports = await sql`
@@ -44,10 +42,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    // Aylık rapor açma/kapatma tüm şirketleri etkiler.
+    await requireSystemAdmin(user.id)
 
     const body = await request.json()
     const { reportMonth, notes } = body
@@ -72,8 +69,7 @@ export async function POST(request: NextRequest) {
     `
 
     return NextResponse.json({ ...result[0], status: "open" })
-  } catch (error: any) {
-    console.error("Error creating monthly report:", error.message)
-    return NextResponse.json({ error: error.message || "Database error" }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Error creating monthly report:")
   }
 }

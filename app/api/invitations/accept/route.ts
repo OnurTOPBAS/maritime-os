@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import bcrypt from "bcryptjs"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { handleApiError } from "@/lib/api-error"
+import { validatePassword } from "@/lib/password-policy"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +12,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tüm alanlar gerekli" }, { status: 400 })
     }
 
-    // Get invitation
     const invitations = await sql`
       SELECT * FROM user_invitations
       WHERE token = ${token}
@@ -26,33 +25,35 @@ export async function POST(request: NextRequest) {
 
     const invitation = invitations[0]
 
-    // Check if user already exists
+    // Davet akışında da aynı parola politikası geçerlidir.
+    validatePassword(password, { email: invitation.email, name })
+
     let userId
     const existingUsers = await sql`
       SELECT id FROM users WHERE email = ${invitation.email}
     `
 
     if (existingUsers.length > 0) {
+      // Mevcut kullanıcı: parolası DEĞİŞTİRİLMEZ. Aksi halde bir davet
+      // bağlantısı, var olan bir hesabın parolasını ele geçirmek için
+      // kullanılabilirdi.
       userId = existingUsers[0].id
     } else {
-      // Create new user
-      const passwordHash = await bcrypt.hash(password, 10)
+      const passwordHash = await bcrypt.hash(password, 12)
       const newUser = await sql`
         INSERT INTO users (name, email, password_hash)
-        VALUES (${name}, ${invitation.email}, ${passwordHash})
+        VALUES (${name.trim()}, ${invitation.email}, ${passwordHash})
         RETURNING id
       `
       userId = newUser[0].id
     }
 
-    // Add user to company
     await sql`
       INSERT INTO user_permissions (user_id, company_id, role, is_active)
       VALUES (${userId}, ${invitation.company_id}, ${invitation.role}, true)
       ON CONFLICT (user_id, company_id) DO NOTHING
     `
 
-    // Mark invitation as accepted
     await sql`
       UPDATE user_invitations
       SET accepted = true
@@ -61,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: "Davet kabul edildi" })
   } catch (error) {
-    console.error("Error accepting invitation:", error)
-    return NextResponse.json({ error: "Davet kabul edilemedi" }, { status: 500 })
+    return handleApiError(error, "Davet kabul")
   }
 }

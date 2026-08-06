@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 // Auto-initialize tables if they don't exist
 export async function POST() {
   try {
+    // Bu uç nokta veritabanı şeması oluşturur (DDL). Önceden kimlik
+    // doğrulaması yoktu: internetteki herkes çağırabiliyordu.
+    // Şema normalde scripts/ altındaki migration'larla yönetilir.
+    const user = await requireAuth()
+    await requireSystemAdmin(user.id)
+
     // Read and execute the SQL script
     const sqlScript = `
       CREATE TABLE IF NOT EXISTS voyage_calculations (
@@ -73,8 +82,7 @@ export async function POST() {
     await sql.unsafe(sqlScript)
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error("[v0] Init voyage calculator error:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Sefer hesaplayıcı ilk kurulum")
   }
 }

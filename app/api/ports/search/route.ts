@@ -1,8 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: NextRequest) {
   try {
+    // Referans verisi olsa da oturum aranır; herkese açık kalmamalı.
+    await requireAuth()
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get("q")
 
@@ -10,7 +14,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ ports: [] })
     }
 
-    console.log("[v0] Searching ports for:", query)
 
     try {
       // Search ports by name (case-insensitive, partial match)
@@ -39,7 +42,6 @@ export async function GET(request: NextRequest) {
         LIMIT 20
       `
 
-      console.log("[v0] Found ports:", ports.length)
 
       return NextResponse.json({ ports })
     } catch (dbError: any) {

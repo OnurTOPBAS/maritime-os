@@ -41,6 +41,8 @@ interface ShipDetail {
   imo_number: string | null
   flag: string | null
   vessel_type: string | null
+  built_year: number | null
+  status: string | null
   dwt: number | null
   grt: number | null
   nrt: number | null

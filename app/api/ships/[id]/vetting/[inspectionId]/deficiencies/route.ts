@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { isValidUUID } from "@/lib/utils"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireShipAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string; inspectionId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; inspectionId: string }> }) {
   try {
-    const shipId = params.id
-    const inspectionId = params.inspectionId
+    const user = await requireAuth()
+    const { id: shipId, inspectionId } = await params
+    await requireShipAccess(user.id, shipId, "canView")
 
     if (!isValidUUID(shipId)) {
       return NextResponse.json({ error: "Invalid ship ID" }, { status: 400 })
@@ -30,10 +33,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string; inspectionId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; inspectionId: string }> }) {
   try {
-    const shipId = params.id
-    const inspectionId = params.inspectionId
+    const user = await requireAuth()
+    const { id: shipId, inspectionId } = await params
+    await requireShipAccess(user.id, shipId, "canCreate")
 
     if (!isValidUUID(shipId)) {
       return NextResponse.json({ error: "Invalid ship ID" }, { status: 400 })
@@ -45,7 +49,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
     const body = await request.json()
 
-    console.log("[v0] Adding deficiency to inspection:", inspectionId, body)
 
     // Add the deficiency/observation
     const result = await sql`
@@ -70,7 +73,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       WHERE id = ${inspectionId}
     `
 
-    console.log("[v0] Deficiency added successfully:", result[0])
 
     return NextResponse.json(result[0])
   } catch (error) {

@@ -195,7 +195,7 @@ export function MonthlyFinancialChart() {
               <XAxis dataKey="month" />
               <YAxis tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`} />
               <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
+                formatter={(value) => formatCurrency(Number(value))}
                 labelStyle={{ color: "#000" }}
                 contentStyle={{ backgroundColor: "#fff", border: "1px solid #ccc" }}
               />

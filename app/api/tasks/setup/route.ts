@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,7 +10,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    console.log("[v0] Setting up task management tables...")
 
     await sql`
       CREATE TABLE IF NOT EXISTS tasks (
@@ -79,7 +77,6 @@ export async function POST(request: NextRequest) {
     await sql`CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`
     await sql`CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(task_id)`
 
-    console.log("[v0] Task management tables created successfully")
 
     return NextResponse.json({
       success: true,

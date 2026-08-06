@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getSession } from "@/lib/session"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
     const reportMonth = searchParams.get("reportMonth")
@@ -25,23 +23,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(balances)
     }
 
-    // Get all active banks
+    // Tüm bankalar. Not: office_payee_banks tablosunda is_active sütunu yok;
+    // önceki kod olmayan bir sütunu filtrelediği için sorgu her istekte hata
+    // veriyordu.
     const banks = await sql`
-      SELECT * FROM office_payee_banks WHERE is_active = true ORDER BY name ASC
+      SELECT * FROM office_payee_banks ORDER BY name ASC
     `
     return NextResponse.json(banks)
-  } catch (error: any) {
-    console.error("Error fetching bank balances:", error.message)
-    return NextResponse.json({ error: error.message || "Database error" }, { status: 500 })
+  } catch (error) {
+    // İç hata mesajı istemciye sızdırılmaz.
+    return handleApiError(error, "Banka bakiyeleri")
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    // Banka bakiyeleri tüm şirketleri etkileyen paylaşılan mali veridir.
+    await requireSystemAdmin(user.id)
 
     const body = await request.json()
     const { bankId, bankName, reportMonth, balanceTl, balanceUsd, currencyRate, notes } = body
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
             balance_usd = ${balanceUsd || 0},
             currency_rate = ${currencyRate || null},
             notes = ${notes || null},
-            updated_by = ${session.id},
+            updated_by = ${user.id},
             updated_at = NOW()
         WHERE bank_id = ${bankId} AND report_month = ${reportMonth}
         RETURNING *
@@ -88,14 +87,13 @@ export async function POST(request: NextRequest) {
         ${bankId}, ${bankName || null}, ${reportMonth}, 
         ${balanceTl || 0}, ${balanceUsd || 0},
         ${balanceTl || 0}, ${balanceUsd || 0},
-        ${currencyRate || null}, ${notes || null}, ${session.id}
+        ${currencyRate || null}, ${notes || null}, ${user.id}
       )
       RETURNING *
     `
 
     return NextResponse.json(result[0])
-  } catch (error: any) {
-    console.error("Error saving bank balance:", error.message)
-    return NextResponse.json({ error: error.message || "Database error" }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Banka bakiyesi kaydetme")
   }
 }

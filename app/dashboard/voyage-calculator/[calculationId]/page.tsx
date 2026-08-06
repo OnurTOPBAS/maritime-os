@@ -2,10 +2,11 @@
 
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VoyageCalculatorWizard } from "@/components/voyage-calculator-wizard"
-import { useEffect, useState } from "react"
+import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 
-export default function VoyageCalculatorDetailPage({ params }: { params: { calculationId: string } }) {
+export default function VoyageCalculatorDetailPage({ params }: { params: Promise<{ calculationId: string }> }) {
+  const resolvedParams = use(params)
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
 
@@ -33,7 +34,7 @@ export default function VoyageCalculatorDetailPage({ params }: { params: { calcu
 
   return (
     <DashboardLayout user={user}>
-      <VoyageCalculatorWizard calculationId={params.calculationId} />
+      <VoyageCalculatorWizard calculationId={resolvedParams.calculationId} />
     </DashboardLayout>
   )
 }

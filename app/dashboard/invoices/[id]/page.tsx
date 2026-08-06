@@ -7,9 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { FileText } from "lucide-react"
 import { DocumentList } from "@/components/document-list"
 
-export default async function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
-  const { id } = params
+  const { id } = await params
 
   const invoices = await sql`
     SELECT 

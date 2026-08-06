@@ -2,14 +2,14 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { getCurrentUser } from "@/lib/session"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string; certificateId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; certificateId: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { certificateId } = params
+    const { certificateId } = await params
 
     // Get all versions of the certificate file
     const versions = await sql`
@@ -29,14 +29,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string; certificateId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string; certificateId: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { certificateId } = params
+    const { certificateId } = await params
     const body = await request.json()
     const { file_url, file_name, file_size, file_type, thumbnail_url, notes } = body
 

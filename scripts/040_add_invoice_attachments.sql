@@ -10,4 +10,4 @@ CREATE TABLE IF NOT EXISTS invoice_attachments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_invoice_attachments_invoice_id ON invoice_attachments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_attachments_invoice_id ON invoice_attachments(invoice_id);

@@ -25,7 +25,6 @@ export async function POST(request: Request) {
     const user = await requireAuth()
     const { name, address, phone, email, tax_number } = await request.json()
 
-    console.log("[v0] Creating company for user:", user.id)
 
     if (!name) {
       return NextResponse.json({ error: "Company name is required" }, { status: 400 })

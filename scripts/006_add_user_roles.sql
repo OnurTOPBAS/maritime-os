@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS user_permissions (
 );
 
 -- Create indexes
-CREATE INDEX idx_user_permissions_user ON user_permissions(user_id);
-CREATE INDEX idx_user_permissions_company ON user_permissions(company_id);
+CREATE INDEX IF NOT EXISTS idx_user_permissions_user ON user_permissions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_permissions_company ON user_permissions(company_id);
 
 -- Update existing users to have admin role for their companies
 INSERT INTO user_permissions (user_id, company_id, role)

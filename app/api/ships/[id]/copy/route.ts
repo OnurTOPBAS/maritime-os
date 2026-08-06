@@ -3,14 +3,14 @@ import { sql } from "@/lib/db"
 import { getCurrentUser } from "@/lib/session"
 import { logActivity } from "@/lib/audit-logger"
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const shipId = params.id
+    const shipId = (await params).id
 
     const ships = await sql`
       SELECT s.*, f.company_id 

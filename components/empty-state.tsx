@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import type { LucideIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,10 +9,23 @@ interface EmptyStateProps {
   icon: LucideIcon
   title: string
   description?: string
-  action?: {
-    label: string
-    onClick: () => void
-  }
+  /**
+   * Eylem alanı. İki biçim desteklenir:
+   *  - Hazır düğme için: { label, onClick }
+   *  - Serbest içerik için: doğrudan JSX (koşullu render dâhil)
+   */
+  action?: React.ReactNode | { label: string; onClick: () => void }
+}
+
+/** Verilen değerin { label, onClick } biçiminde olup olmadığını anlar. */
+function isButtonAction(value: unknown): value is { label: string; onClick: () => void } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !React.isValidElement(value) &&
+    "label" in value &&
+    "onClick" in value
+  )
 }
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
@@ -23,7 +37,7 @@ export function EmptyState({ icon: Icon, title, description, action }: EmptyStat
         </div>
         <h3 className="text-lg font-semibold mb-2">{title}</h3>
         {description && <p className="text-sm text-muted-foreground mb-6 max-w-sm text-balance">{description}</p>}
-        {action && <Button onClick={action.onClick}>{action.label}</Button>}
+        {isButtonAction(action) ? <Button onClick={action.onClick}>{action.label}</Button> : action}
       </CardContent>
     </Card>
   )

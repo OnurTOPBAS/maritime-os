@@ -1,17 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/auth"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { taskId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { taskId } = params
+    const { taskId } = await params
 
     const userCompanies = await sql`
       SELECT c.id FROM companies c
@@ -94,17 +93,16 @@ export async function GET(request: NextRequest, { params }: { params: { taskId: 
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { taskId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { taskId } = params
+    const { taskId } = await params
     const body = await request.json()
 
-    console.log("[v0] PUT request received:", { taskId, body })
 
     const { title, description, category, priority, status, assignedTo, shipId, startDate, dueDate, tags } = body
 
@@ -197,7 +195,6 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
       }
     }
 
-    console.log("[v0] Task updated successfully:", updatedTask[0]?.id)
 
     if (!updatedTask || updatedTask.length === 0) {
       return NextResponse.json({ error: "Failed to update task" }, { status: 500 })
@@ -210,14 +207,14 @@ export async function PUT(request: NextRequest, { params }: { params: { taskId: 
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { taskId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ taskId: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { taskId } = params
+    const { taskId } = await params
 
     const userCompanies = await sql`
       SELECT c.id FROM companies c

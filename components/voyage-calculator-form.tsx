@@ -304,7 +304,11 @@ export function VoyageCalculatorForm({
           ]
 
           // Create a map of loaded items by category
-          const loadedItemsMap = new Map(data.cost_items.map((item: any) => [item.category, item]))
+          // Map'in değer tipi açıkça verilir; aksi halde TypeScript boş nesne ({})
+          // çıkarımı yapıyor ve item alanları görünmüyor.
+          const loadedItemsMap = new Map<string, { description?: string; amount?: number }>(
+            data.cost_items.map((item: any) => [item.category, item]),
+          )
 
           // Merge: use loaded values if they exist, otherwise use defaults
           const mergedCostItems = defaultCategories.map((category) => {

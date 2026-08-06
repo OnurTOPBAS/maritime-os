@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function GET(request: NextRequest, { params }: { params: { voyageId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ voyageId: string }> }) {
   try {
-    await requireAuth()
-    const { voyageId } = params
+    const user = await requireAuth()
+    const { voyageId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canView")
 
     const legs = await sql`
       SELECT * FROM voyage_legs
@@ -17,15 +18,16 @@ export async function GET(request: NextRequest, { params }: { params: { voyageId
 
     return NextResponse.json(legs)
   } catch (error) {
-    console.error("[v0] Get voyage legs error:", error)
-    return NextResponse.json({ error: "Failed to fetch voyage legs" }, { status: 500 })
+    return handleApiError(error, "Sefer bacakları")
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { voyageId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ voyageId: string }> }) {
   try {
-    await requireAuth()
-    const { voyageId } = params
+    const user = await requireAuth()
+    const { voyageId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canCreate")
+
     const body = await request.json()
 
     const existingLegs = await sql`
@@ -34,7 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: { voyageI
     const legOrder = Number(existingLegs[0]?.count || 0) + 1
 
     const voyage = await sql`SELECT service_speed FROM voyages WHERE id = ${voyageId}`
-    const serviceSpeed = voyage[0]?.service_speed || 12
+    const serviceSpeed = Number(voyage[0]?.service_speed) || 12
 
     const seaDays = body.distance_nm / (serviceSpeed * 24)
 
@@ -50,7 +52,6 @@ export async function POST(request: NextRequest, { params }: { params: { voyageI
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {
-    console.error("[v0] Create voyage leg error:", error)
-    return NextResponse.json({ error: "Failed to create voyage leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacağı oluşturma")
   }
 }

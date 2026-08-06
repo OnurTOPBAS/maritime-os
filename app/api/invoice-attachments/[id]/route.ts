@@ -1,12 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { del } from "@vercel/blob"
+import { deleteFile } from "@/lib/storage"
+import { handleApiError } from "@/lib/api-error"
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const { id } = params
+    const { id } = await params
 
     // Get attachment and check access
     const attachment = await sql`
@@ -23,14 +24,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     // Delete from Blob storage
-    await del(attachment[0].file_url)
+    await deleteFile(attachment[0].file_url)
 
     // Delete from database
     await sql`DELETE FROM invoice_attachments WHERE id = ${id}`
 
     return NextResponse.json({ success: true })
-  } catch (error: any) {
-    console.error("Error deleting attachment:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Error deleting attachment:")
   }
 }

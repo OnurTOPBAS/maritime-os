@@ -69,7 +69,6 @@ export async function GET(request: NextRequest) {
     console.error("[v0] Error fetching voyage calculations:", error)
 
     if (error?.code === "42P01" || error?.message?.includes("does not exist")) {
-      console.log("[v0] Table does not exist, auto-initializing...")
 
       try {
         await fetch(new URL("/api/voyage-calculator/init", request.url), {

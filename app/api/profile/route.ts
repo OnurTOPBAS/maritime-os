@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/session"
 import bcrypt from "bcryptjs"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 function calculateProfileCompletion(profile: any): number {
   const fields = [
@@ -106,7 +105,7 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: "Yeni şifre en az 8 karakter olmalı" }, { status: 400 })
       }
 
-      const passwordHash = await bcrypt.hash(newPassword, 10)
+      const passwordHash = await bcrypt.hash(newPassword, 12)
       await sql`
         UPDATE users
         SET password_hash = ${passwordHash}, updated_at = CURRENT_TIMESTAMP

@@ -15,5 +15,5 @@ CREATE TABLE IF NOT EXISTS ship_certificate_files (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_certificate_files_certificate ON ship_certificate_files(certificate_id);
-CREATE INDEX idx_certificate_files_current ON ship_certificate_files(certificate_id, is_current);
+CREATE INDEX IF NOT EXISTS idx_certificate_files_certificate ON ship_certificate_files(certificate_id);
+CREATE INDEX IF NOT EXISTS idx_certificate_files_current ON ship_certificate_files(certificate_id, is_current);

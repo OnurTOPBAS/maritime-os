@@ -3,7 +3,10 @@ import { cookies } from "next/headers"
 import { sql } from "./db"
 import bcrypt from "bcryptjs"
 
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "your-secret-key-change-in-production")
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET environment variable is not set")
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 export interface User {
   id: string
@@ -12,7 +15,7 @@ export interface User {
 }
 
 export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10)
+  return bcrypt.hash(password, 12)
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {

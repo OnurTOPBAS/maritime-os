@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/session"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 async function ensureUserSessionsTable() {
   try {
@@ -24,7 +23,6 @@ async function ensureUserSessionsTable() {
     await sql`CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at)`
   } catch (error) {
     // Table might already exist, ignore error
-    console.log("[v0] User sessions table check:", error)
   }
 }
 

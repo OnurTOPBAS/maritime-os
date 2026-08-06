@@ -1,70 +1,104 @@
-import { put } from "@vercel/blob"
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireCompanyAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
+import { validateUpload } from "@/lib/upload-validation"
+import { saveFile } from "@/lib/storage"
+
+/**
+ * Belgenin iliştirileceği kaydın hangi şirkete ait olduğunu bulur.
+ *
+ * Bu olmadan kullanıcı, başkasına ait bir gemi/fixture/fatura kimliği
+ * göndererek o kaydın altına belge iliştirebilirdi (IDOR).
+ */
+async function resolveCompanyId(
+  shipId: string | null,
+  fixtureId: string | null,
+  invoiceId: string | null,
+): Promise<string | null> {
+  if (shipId) {
+    const [row] = await sql`
+      SELECT f.company_id FROM ships s
+      JOIN fleets f ON s.fleet_id = f.id
+      WHERE s.id = ${shipId}
+    `
+    return row?.company_id ?? null
+  }
+
+  if (fixtureId) {
+    const [row] = await sql`
+      SELECT f.company_id FROM fixtures fx
+      JOIN ships s ON fx.ship_id = s.id
+      JOIN fleets f ON s.fleet_id = f.id
+      WHERE fx.id = ${fixtureId}
+    `
+    return row?.company_id ?? null
+  }
+
+  if (invoiceId) {
+    // invoices tablosu şirkete doğrudan bağlıdır (company_id sütunu var).
+    const [row] = await sql`
+      SELECT company_id FROM invoices WHERE id = ${invoiceId}
+    `
+    return row?.company_id ?? null
+  }
+
+  return null
+}
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Document upload API called")
-
     const user = await requireAuth()
-    console.log("[v0] User authenticated:", user.id)
 
     const formData = await request.formData()
 
-    const file = formData.get("file") as File
-    const category = formData.get("category") as string
-    const shipId = formData.get("shipId") as string | null
-    const fixtureId = formData.get("fixtureId") as string | null
-    const invoiceId = formData.get("invoiceId") as string | null
-    const description = formData.get("description") as string | null
-
-    console.log("[v0] Upload params:", { category, shipId, fixtureId, invoiceId, fileSize: file?.size })
+    const file = formData.get("file") as File | null
+    const category = formData.get("category") as string | null
+    const shipId = (formData.get("shipId") as string | null) || null
+    const fixtureId = (formData.get("fixtureId") as string | null) || null
+    const invoiceId = (formData.get("invoiceId") as string | null) || null
+    const description = (formData.get("description") as string | null) || null
 
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: "Dosya gönderilmedi" }, { status: 400 })
     }
 
     if (!category) {
-      return NextResponse.json({ error: "Category is required" }, { status: 400 })
+      return NextResponse.json({ error: "Kategori zorunludur" }, { status: 400 })
     }
 
-    // At least one relation must be set
     if (!shipId && !fixtureId && !invoiceId) {
-      return NextResponse.json({ error: "Must specify ship, fixture, or invoice" }, { status: 400 })
+      return NextResponse.json({ error: "Gemi, fixture veya fatura belirtilmelidir" }, { status: 400 })
     }
 
-    console.log("[v0] Uploading to Blob storage...")
-    const blob = await put(file.name, file, {
-      access: "public",
-    })
-    console.log("[v0] Blob upload successful:", blob.url)
+    validateUpload(file, "document")
 
-    console.log("[v0] Saving to database...")
+    // İlgili kaydın şirketi bulunur ve kullanıcının o şirkette yazma
+    // yetkisi olduğu doğrulanır.
+    const companyId = await resolveCompanyId(shipId, fixtureId, invoiceId)
+    if (!companyId) {
+      return NextResponse.json({ error: "İlgili kayıt bulunamadı" }, { status: 404 })
+    }
+    await requireCompanyAccess(user.id, companyId, "canCreate")
+
+    const saved = await saveFile("documents", user.id, file)
+
     const result = await sql`
       INSERT INTO documents (
         filename, original_filename, file_url, file_size, file_type,
         category, ship_id, fixture_id, invoice_id, uploaded_by, description
       ) VALUES (
-        ${file.name}, ${file.name}, ${blob.url}, ${file.size}, ${file.type},
+        ${saved.key}, ${file.name}, ${saved.url}, ${saved.size}, ${saved.type},
         ${category}, ${shipId}, ${fixtureId}, ${invoiceId}, ${user.id}, ${description}
       )
       RETURNING *
     `
-    console.log("[v0] Database save successful")
 
-    return NextResponse.json({
-      success: true,
-      document: result[0],
-    })
+    return NextResponse.json({ success: true, document: result[0] }, { status: 201 })
   } catch (error) {
-    console.error("[v0] Upload error:", error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Upload failed",
-        details: error instanceof Error ? error.stack : undefined,
-      },
-      { status: 500 },
-    )
+    // Not: Önceden hata yanıtında error.stack istemciye gönderiliyordu
+    // (bilgi sızıntısı). handleApiError yalnızca sunucuya loglar.
+    return handleApiError(error, "Belge yükleme")
   }
 }

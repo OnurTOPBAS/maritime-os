@@ -1,23 +1,27 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getSession } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { generateCertificateReminderEmail } from "@/lib/certificate-notifications"
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession()
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { certificateIds } = await request.json()
 
-    if (!certificateIds || certificateIds.length === 0) {
-      return NextResponse.json({ error: "No certificates selected" }, { status: 400 })
+    if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
+      return NextResponse.json({ error: "Sertifika seçilmedi" }, { status: 400 })
+    }
+
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json({ error: "Erişilebilir sertifika yok" }, { status: 403 })
     }
 
     const certificates = await sql`
-      SELECT 
+      SELECT
         sc.id as certificate_id,
         sc.certificate_name,
         sc.certificate_type,
@@ -26,13 +30,13 @@ export async function POST(request: Request) {
         s.name as ship_name,
         u.name as responsible_person_name,
         u.email as responsible_person_email,
-        EXTRACT(DAY FROM (sc.expires_date - CURRENT_DATE)) as days_until_expiry
+        (sc.expires_date - CURRENT_DATE) as days_until_expiry
       FROM ship_certificates sc
       JOIN ships s ON sc.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
       LEFT JOIN users u ON sc.responsible_person_id = u.id
-      WHERE f.company_id = ${session.user.companyId}
-        AND sc.id = ANY(${certificateIds})
+      WHERE f.company_id = ANY(${allowedCompanyIds}::uuid[])
+        AND sc.id = ANY(${certificateIds}::uuid[])
         AND sc.expires_date IS NOT NULL
     `
 
@@ -55,20 +59,13 @@ export async function POST(request: Request) {
           : undefined,
       }
 
-      const { subject, html } = generateCertificateReminderEmail(notification)
-
-      // TODO: Integrate with actual email service
-      console.log(`[v0] Sending reminder for certificate ${cert.certificate_name}:`, subject)
-
+      // NOT: Gerçek e-posta gönderimi henüz bağlanmadı (mevcut davranış korundu).
+      generateCertificateReminderEmail(notification)
       sentCount++
     }
 
-    return NextResponse.json({
-      success: true,
-      sentCount,
-    })
+    return NextResponse.json({ success: true, sentCount })
   } catch (error) {
-    console.error("[v0] Error sending bulk reminders:", error)
-    return NextResponse.json({ error: "Failed to send reminders" }, { status: 500 })
+    return handleApiError(error, "Toplu sertifika hatırlatma")
   }
 }

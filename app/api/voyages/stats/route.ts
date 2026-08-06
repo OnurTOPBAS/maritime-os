@@ -1,36 +1,16 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader?.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const token = authHeader.substring(7)
-    const userResponse = await fetch(`${request.url.split("/api")[0]}/api/auth/me`, {
-      headers: { authorization: `Bearer ${token}` },
-    })
-
-    if (!userResponse.ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const userData = await userResponse.json()
-    const userId = userData.user?.id
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID not found" }, { status: 401 })
-    }
-
-    const userCompanies = await sql`
-      SELECT id as company_id FROM companies WHERE owner_id = ${userId}
-      UNION
-      SELECT company_id FROM company_team_members WHERE user_id = ${userId}
-    `
-
-    const companyIds = userCompanies.map((row: any) => row.company_id).filter(Boolean)
+    // Bu rota daha önce Authorization: Bearer başlığı bekliyordu; oysa uygulama
+    // çerez tabanlı oturum kullanır. Tarayıcıdan gelen her istek 401 alıyor,
+    // yani istatistik ekranı hiç çalışmıyordu.
+    const user = await requireAuth()
+    const companyIds = await getAccessibleCompanyIds(user.id)
 
     if (companyIds.length === 0) {
       return NextResponse.json({
@@ -51,7 +31,7 @@ export async function GET(request: Request) {
       JOIN fixtures fx ON v.fixture_id = fx.id
       JOIN ships s ON fx.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ANY(${companyIds})
+      WHERE f.company_id = ANY(${companyIds}::uuid[])
       GROUP BY v.status
     `
 
@@ -72,7 +52,7 @@ export async function GET(request: Request) {
       JOIN fixtures fx ON v.fixture_id = fx.id
       JOIN ships s ON fx.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ANY(${companyIds}) 
+      WHERE f.company_id = ANY(${companyIds}::uuid[]) 
         AND v.total_days IS NOT NULL
     `
     const averageDuration = Number.parseFloat(durationResult[0]?.avg_duration || "0")
@@ -84,7 +64,7 @@ export async function GET(request: Request) {
       JOIN fixtures fx ON v.fixture_id = fx.id
       JOIN ships s ON fx.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ANY(${companyIds})
+      WHERE f.company_id = ANY(${companyIds}::uuid[])
     `
     const totalDistance = Number.parseFloat(distanceResult[0]?.total_distance || "0")
 
@@ -97,7 +77,7 @@ export async function GET(request: Request) {
       JOIN fixtures fx ON v.fixture_id = fx.id
       JOIN ships s ON fx.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ANY(${companyIds})
+      WHERE f.company_id = ANY(${companyIds}::uuid[])
     `
     const totalFo = Number.parseFloat(metricsResult[0]?.total_fo || "0")
     const totalMgo = Number.parseFloat(metricsResult[0]?.total_mgo || "0")
@@ -114,7 +94,7 @@ export async function GET(request: Request) {
       JOIN fixtures fx ON v.fixture_id = fx.id
       JOIN ships s ON fx.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ANY(${companyIds})
+      WHERE f.company_id = ANY(${companyIds}::uuid[])
       GROUP BY s.id, s.name
       ORDER BY voyage_count DESC
       LIMIT 10
@@ -136,7 +116,6 @@ export async function GET(request: Request) {
       performanceMetrics,
     })
   } catch (error) {
-    console.error("Error fetching voyage stats:", error)
-    return NextResponse.json({ error: `Failed to fetch voyage statistics: ${error}` }, { status: 500 })
+    return handleApiError(error, "İstatistikler")
   }
 }

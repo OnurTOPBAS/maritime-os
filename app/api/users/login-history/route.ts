@@ -1,39 +1,52 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getCurrentUser } from "@/lib/session"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { sql } from "@/lib/db"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
+/**
+ * Kullanıcının oturum/giriş geçmişi.
+ *
+ * Düzeltmeler:
+ *  - Sorgu var olmayan sütunları (last_activity, is_active) okuyordu; doğrusu
+ *    last_active. Bu yüzden rota her istekte 500 veriyordu.
+ *  - userId parametresi doğrudan kullanılıyordu: herkes bir başkasının giriş
+ *    geçmişini (IP adresleri dâhil) görebiliyordu. Artık başkasının geçmişi
+ *    yalnızca yöneticilere açıktır.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId") || user.id
-    const limit = searchParams.get("limit") ? Number.parseInt(searchParams.get("limit")!) : 50
+    const requestedUserId = searchParams.get("userId")
+
+    if (requestedUserId && requestedUserId !== user.id) {
+      await requireSystemAdmin(user.id)
+    }
+    const targetUserId = requestedUserId ?? user.id
+
+    const rawLimit = Number.parseInt(searchParams.get("limit") ?? "50", 10)
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 50
 
     const sessions = await sql`
-      SELECT 
+      SELECT
         id,
         user_id,
         ip_address,
         user_agent,
         created_at,
         expires_at,
-        last_activity,
-        is_active
+        last_active,
+        (expires_at > NOW()) AS is_active
       FROM user_sessions
-      WHERE user_id = ${userId}
+      WHERE user_id = ${targetUserId}
       ORDER BY created_at DESC
       LIMIT ${limit}
     `
 
     return NextResponse.json(sessions)
   } catch (error) {
-    console.error("Error fetching login history:", error)
-    return NextResponse.json({ error: "Failed to fetch login history" }, { status: 500 })
+    return handleApiError(error, "Giriş geçmişi")
   }
 }

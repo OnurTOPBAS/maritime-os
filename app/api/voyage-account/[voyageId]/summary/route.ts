@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 function parseNumericFields(obj: any) {
   const numericFields = [
@@ -34,12 +34,15 @@ function parseNumericFields(obj: any) {
   return parsed
 }
 
-export async function GET(request: NextRequest, { params }: { params: { voyageId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ voyageId: string }> }) {
   try {
-    await requireAuth()
-    const { voyageId } = params
+    const user = await requireAuth()
+    const { voyageId } = await params
 
-    // Get voyage details with ship info
+    // Sefer özeti tüm mali verileri (gelir, maliyet, kâr) içerir;
+    // erişim kontrolü olmadan başka şirketin karlılığı görülebilirdi.
+    await requireVoyageAccess(user.id, voyageId, "canView")
+
     const voyage = await sql`
       SELECT v.*, f.charterer, s.name as ship_name, s.imo_number, s.dwt
       FROM voyages v
@@ -49,10 +52,9 @@ export async function GET(request: NextRequest, { params }: { params: { voyageId
     `
 
     if (voyage.length === 0) {
-      return NextResponse.json({ error: "Voyage not found" }, { status: 404 })
+      return NextResponse.json({ error: "Sefer bulunamadı" }, { status: 404 })
     }
 
-    // Get all related data
     const [legs, activities, bunkerPrices, costs, revenues] = await Promise.all([
       sql`SELECT * FROM voyage_legs WHERE voyage_id = ${voyageId} ORDER BY leg_order`,
       sql`SELECT * FROM voyage_activities WHERE voyage_id = ${voyageId}`,
@@ -70,7 +72,6 @@ export async function GET(request: NextRequest, { params }: { params: { voyageId
       revenues: revenues.map(parseNumericFields),
     })
   } catch (error) {
-    console.error("[v0] Get voyage summary error:", error)
-    return NextResponse.json({ error: "Failed to fetch voyage summary" }, { status: 500 })
+    return handleApiError(error, "Sefer özeti")
   }
 }

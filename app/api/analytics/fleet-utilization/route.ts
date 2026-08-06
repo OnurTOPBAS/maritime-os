@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,8 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(result)
-  } catch (error: any) {
-    console.error("[v0] Error fetching fleet utilization:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "[v0] Error fetching fleet utilization:")
   }
 }

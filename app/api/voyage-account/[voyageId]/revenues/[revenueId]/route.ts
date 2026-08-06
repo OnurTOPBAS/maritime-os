@@ -1,13 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function PUT(request: NextRequest, { params }: { params: { voyageId: string; revenueId: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; revenueId: string }> },
+) {
   try {
-    await requireAuth()
-    const { revenueId } = params
+    const user = await requireAuth()
+    const { voyageId, revenueId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canEdit")
+
     const body = await request.json()
 
     const result = await sql`
@@ -18,27 +23,41 @@ export async function PUT(request: NextRequest, { params }: { params: { voyageId
           currency = ${body.currency || "USD"},
           notes = ${body.notes || null},
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${revenueId}
+      WHERE id = ${revenueId} AND voyage_id = ${voyageId}
       RETURNING *
     `
 
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Gelir kaydı bulunamadı" }, { status: 404 })
+    }
+
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Update voyage revenue error:", error)
-    return NextResponse.json({ error: "Failed to update voyage revenue" }, { status: 500 })
+    return handleApiError(error, "Sefer geliri güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { voyageId: string; revenueId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; revenueId: string }> },
+) {
   try {
-    await requireAuth()
-    const { revenueId } = params
+    const user = await requireAuth()
+    const { voyageId, revenueId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canDelete")
 
-    await sql`DELETE FROM voyage_revenue_items WHERE id = ${revenueId}`
+    const result = await sql`
+      DELETE FROM voyage_revenue_items
+      WHERE id = ${revenueId} AND voyage_id = ${voyageId}
+      RETURNING id
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Gelir kaydı bulunamadı" }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete voyage revenue error:", error)
-    return NextResponse.json({ error: "Failed to delete voyage revenue" }, { status: 500 })
+    return handleApiError(error, "Sefer geliri silme")
   }
 }

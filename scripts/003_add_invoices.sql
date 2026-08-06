@@ -30,12 +30,12 @@ CREATE TABLE IF NOT EXISTS payments (
 );
 
 -- Create indexes
-CREATE INDEX idx_invoices_company ON invoices(company_id);
-CREATE INDEX idx_invoices_fixture ON invoices(fixture_id);
-CREATE INDEX idx_invoices_voyage ON invoices(voyage_id);
-CREATE INDEX idx_invoices_status ON invoices(status);
-CREATE INDEX idx_invoices_type ON invoices(type);
-CREATE INDEX idx_payments_invoice ON payments(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_company ON invoices(company_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_fixture ON invoices(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_voyage ON invoices(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_status ON invoices(status);
+CREATE INDEX IF NOT EXISTS idx_invoices_type ON invoices(type);
+CREATE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice_id);
 
 -- Add unique constraint for invoice number per company
-CREATE UNIQUE INDEX idx_invoices_number_company ON invoices(company_id, invoice_number);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_number_company ON invoices(company_id, invoice_number);

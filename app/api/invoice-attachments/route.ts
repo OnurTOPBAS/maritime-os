@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { put } from "@vercel/blob"
+import { saveFile } from "@/lib/storage"
+import { handleApiError } from "@/lib/api-error"
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,22 +28,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invoice not found or access denied" }, { status: 404 })
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`invoices/${invoiceId}/${file.name}`, file, {
-      access: "public",
-    })
+    // Sunucu diskine kaydedilir (yükleyen kullanıcıya özel yol).
+    const saved = await saveFile(`invoices/${invoiceId}`, user.id, file)
 
     // Save attachment record
     const result = await sql`
       INSERT INTO invoice_attachments (invoice_id, file_name, file_url, file_size, file_type, uploaded_by)
-      VALUES (${invoiceId}, ${file.name}, ${blob.url}, ${file.size}, ${file.type}, ${user.id})
+      VALUES (${invoiceId}, ${file.name}, ${saved.url}, ${saved.size}, ${saved.type}, ${user.id})
       RETURNING *
     `
 
     return NextResponse.json(result[0], { status: 201 })
-  } catch (error: any) {
-    console.error("Error uploading attachment:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Error uploading attachment:")
   }
 }
 
@@ -78,8 +76,7 @@ export async function GET(request: NextRequest) {
     `
 
     return NextResponse.json(attachments)
-  } catch (error: any) {
-    console.error("Error fetching attachments:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Error fetching attachments:")
   }
 }

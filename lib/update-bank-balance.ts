@@ -1,6 +1,5 @@
-import { neon } from "@neondatabase/serverless"
+import { sql } from "./db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 /**
  * Updates bank balance based on income/expense transaction

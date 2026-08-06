@@ -109,7 +109,7 @@ export function MessagingCenter() {
   const [typingUsers, setTypingUsers] = useState<any[]>([])
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const typingTimeoutRef = useRef<NodeJS.Timeout>()
+  const typingTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     loadConversations()

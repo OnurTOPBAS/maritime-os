@@ -8,7 +8,6 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const query = searchParams.get("q")
 
-    console.log("[v0] Search query:", query)
 
     if (!query || query.trim().length < 2) {
       return NextResponse.json([])

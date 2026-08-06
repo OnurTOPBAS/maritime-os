@@ -1,9 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireCalculationOwner } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-export async function GET(request: NextRequest, { params }: { params: { calculationId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ calculationId: string }> }) {
   try {
-    const { calculationId } = params
+    const user = await requireAuth()
+    const { calculationId } = await params
+    await requireCalculationOwner(user.id, calculationId)
 
     const legs = await sql`
       SELECT 
@@ -34,14 +39,15 @@ export async function GET(request: NextRequest, { params }: { params: { calculat
 
     return NextResponse.json(parsedLegs)
   } catch (error) {
-    console.error("[v0] Error fetching voyage legs:", error)
-    return NextResponse.json({ error: "Failed to fetch legs" }, { status: 500 })
+    return handleApiError(error, "Sefer bacakları")
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { calculationId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ calculationId: string }> }) {
   try {
-    const { calculationId } = params
+    const user = await requireAuth()
+    const { calculationId } = await params
+    await requireCalculationOwner(user.id, calculationId)
     const body = await request.json()
     const { from_port, to_port, distance_nm, leg_condition } = body
 
@@ -102,7 +108,6 @@ export async function POST(request: NextRequest, { params }: { params: { calcula
 
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Error creating voyage leg:", error)
-    return NextResponse.json({ error: "Failed to create leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacakları")
   }
 }

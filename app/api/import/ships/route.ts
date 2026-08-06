@@ -1,92 +1,102 @@
 import { NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/session"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { canAccessCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { validateShip } from "@/lib/validation"
 
+/**
+ * Toplu gemi aktarımı (data-importer bileşeni tarafından kullanılır).
+ *
+ * Düzeltilen sorunlar:
+ *  - validateShip() bir ValidationError DİZİSİ döndürür; kod ise
+ *    `validation.valid` ve `validation.errors` bekliyordu. `valid` daima
+ *    undefined olduğu için HER gemi doğrulamadan kalıyor ve aktarım hiç
+ *    çalışmıyordu.
+ *  - INSERT ifadesi `ship_type` sütununa yazıyordu; tabloda böyle bir sütun
+ *    yok (doğrusu `vessel_type`), yani kayıt eklense bile hata verirdi.
+ *  - Erişim yalnızca şirket sahibine açıktı; ekip üyeleri aktarım yapamıyordu.
+ */
 export async function POST(request: Request) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { ships } = await request.json()
 
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: [] as any[],
+    if (!Array.isArray(ships) || ships.length === 0) {
+      return NextResponse.json({ error: "Gemi verisi gönderilmedi" }, { status: 400 })
     }
+
+    const results = { success: 0, failed: 0, errors: [] as any[] }
+
+    // Aynı filo tekrar tekrar sorgulanmasın diye sonuçlar önbelleklenir.
+    const fleetAccess = new Map<string, boolean>()
 
     for (const ship of ships) {
       try {
-        // Validate ship data
-        const validation = validateShip(ship)
-        if (!validation.valid) {
+        const validationErrors = validateShip(ship)
+        if (validationErrors.length > 0) {
           results.failed++
           results.errors.push({
             row: ship,
-            error: validation.errors.join(", "),
+            error: validationErrors.map((e) => e.message).join(", "),
           })
           continue
         }
 
-        // Check if fleet exists
-        const fleet = await sql`
-          SELECT f.* FROM fleets f
-          JOIN companies c ON f.company_id = c.id
-          WHERE f.id = ${ship.fleet_id} AND c.owner_id = ${user.id}
-        `
-
-        if (fleet.length === 0) {
+        if (!ship.fleet_id) {
           results.failed++
-          results.errors.push({
-            row: ship,
-            error: "Filo bulunamadı veya erişim yetkiniz yok",
-          })
+          results.errors.push({ row: ship, error: "Filo belirtilmedi" })
           continue
         }
 
-        // Check for duplicate IMO
-        const existing = await sql`
-          SELECT s.* FROM ships s
-          JOIN fleets f ON s.fleet_id = f.id
-          JOIN companies c ON f.company_id = c.id
-          WHERE s.imo_number = ${ship.imo_number} AND c.owner_id = ${user.id}
-        `
+        let allowed = fleetAccess.get(ship.fleet_id)
+        if (allowed === undefined) {
+          const [fleet] = await sql`SELECT company_id FROM fleets WHERE id = ${ship.fleet_id}`
+          allowed = fleet ? await canAccessCompany(user.id, fleet.company_id, "canCreate") : false
+          fleetAccess.set(ship.fleet_id, allowed)
+        }
 
-        if (existing.length > 0) {
+        if (!allowed) {
           results.failed++
-          results.errors.push({
-            row: ship,
-            error: `IMO numarası ${ship.imo_number} zaten kayıtlı`,
-          })
+          results.errors.push({ row: ship, error: "Filo bulunamadı veya erişim yetkiniz yok" })
           continue
         }
 
-        // Insert ship
+        if (ship.imo_number) {
+          const existing = await sql`
+            SELECT id FROM ships WHERE imo_number = ${ship.imo_number}
+          `
+          if (existing.length > 0) {
+            results.failed++
+            results.errors.push({
+              row: ship,
+              error: `IMO numarası ${ship.imo_number} zaten kayıtlı`,
+            })
+            continue
+          }
+        }
+
         await sql`
           INSERT INTO ships (
-            fleet_id, name, imo_number, flag, ship_type, dwt, built_year, status
+            fleet_id, name, imo_number, flag, vessel_type, dwt, built_year, status
           ) VALUES (
-            ${ship.fleet_id}, ${ship.name}, ${ship.imo_number}, ${ship.flag},
-            ${ship.ship_type}, ${ship.dwt}, ${ship.built_year}, ${ship.status || "active"}
+            ${ship.fleet_id}, ${ship.name}, ${ship.imo_number || null}, ${ship.flag || null},
+            ${ship.vessel_type || ship.ship_type || null}, ${ship.dwt || null},
+            ${ship.built_year || null}, ${ship.status || "active"}
           )
         `
 
         results.success++
       } catch (error) {
+        console.error(`[Gemi aktarımı] "${ship?.name}" eklenemedi:`, error)
         results.failed++
-        results.errors.push({
-          row: ship,
-          error: error instanceof Error ? error.message : "Bilinmeyen hata",
-        })
+        results.errors.push({ row: ship, error: "Kayıt eklenemedi" })
       }
     }
 
     return NextResponse.json(results)
   } catch (error) {
-    console.error("Error importing ships:", error)
-    return NextResponse.json({ error: "Failed to import ships" }, { status: 500 })
+    return handleApiError(error, "Gemi aktarımı")
   }
 }

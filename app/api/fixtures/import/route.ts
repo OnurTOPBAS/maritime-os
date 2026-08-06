@@ -1,51 +1,62 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
+/**
+ * Excel'den toplu fixture (kiralama sözleşmesi) aktarımı.
+ *
+ * Her fixture bir gemiye bağlanır; kullanıcının o geminin ait olduğu şirkete
+ * erişimi doğrulanır. Önceden bu kontrol yoktu: herhangi bir ship_id
+ * gönderilerek başka şirketin gemisine fixture eklenebiliyordu.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const authResponse = await fetch(new URL("/api/auth/me", request.url).toString(), {
-      headers: request.headers,
-    })
+    const user = await requireAuth()
 
-    if (!authResponse.ok) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const userData = await authResponse.json()
-    const userId = userData.user?.id
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID not found" }, { status: 401 })
-    }
-
-    const body = await request.json()
-    const { fixtures } = body
+    const { fixtures } = await request.json()
 
     if (!Array.isArray(fixtures) || fixtures.length === 0) {
-      return NextResponse.json({ error: "No fixtures data provided" }, { status: 400 })
+      return NextResponse.json({ error: "Fixture verisi gönderilmedi" }, { status: 400 })
     }
 
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: [] as string[],
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json({ error: "Erişilebilir şirket yok" }, { status: 403 })
     }
+
+    // Erişilebilir gemiler bir kez çekilip bellekte kontrol edilir.
+    const allowedShips = await sql`
+      SELECT s.id FROM ships s
+      JOIN fleets f ON s.fleet_id = f.id
+      WHERE f.company_id = ANY(${allowedCompanyIds}::uuid[])
+    `
+    const allowedShipIds = new Set(allowedShips.map((r: any) => r.id))
+
+    const results = { success: 0, failed: 0, errors: [] as string[] }
 
     for (const fixture of fixtures) {
-      try {
-        if (!fixture.charterer) {
-          results.failed++
-          results.errors.push(`Charterer adı eksik`)
-          continue
-        }
+      if (!fixture?.charterer) {
+        results.failed++
+        results.errors.push("Charterer adı eksik")
+        continue
+      }
 
+      if (!fixture.ship_id || !allowedShipIds.has(fixture.ship_id)) {
+        results.failed++
+        results.errors.push(`${fixture.charterer}: geçersiz veya erişim dışı gemi`)
+        continue
+      }
+
+      try {
         await sql`
           INSERT INTO fixtures (
             charterer, ship_id, fixture_type, cargo_type, load_port,
             discharge_port, laycan_from, laycan_to, rate, rate_type,
             cp_date, status, notes
           ) VALUES (
-            ${fixture.charterer}, ${fixture.ship_id || null},
+            ${fixture.charterer}, ${fixture.ship_id},
             ${fixture.fixture_type || null}, ${fixture.cargo_type || null},
             ${fixture.load_port || null}, ${fixture.discharge_port || null},
             ${fixture.laycan_from || null}, ${fixture.laycan_to || null},
@@ -55,15 +66,15 @@ export async function POST(request: NextRequest) {
           )
         `
         results.success++
-      } catch (error: any) {
+      } catch (error) {
+        console.error(`[Fixture aktarımı] "${fixture.charterer}" eklenemedi:`, error)
         results.failed++
-        results.errors.push(`${fixture.charterer}: ${error.message}`)
+        results.errors.push(`${fixture.charterer}: kayıt eklenemedi`)
       }
     }
 
     return NextResponse.json(results)
-  } catch (error: any) {
-    console.error("Error importing fixtures:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Fixture aktarımı")
   }
 }

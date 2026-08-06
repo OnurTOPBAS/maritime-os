@@ -1,13 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { isValidUUID } from "@/lib/utils"
 import { getCurrentUser } from "@/lib/auth"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const shipId = params.id
+    const shipId = (await params).id
 
     if (!isValidUUID(shipId)) {
       return NextResponse.json({ error: "Invalid ship ID" }, { status: 400 })
@@ -66,9 +65,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const shipId = params.id
+    const shipId = (await params).id
 
     if (!isValidUUID(shipId)) {
       return NextResponse.json({ error: "Invalid ship ID" }, { status: 400 })

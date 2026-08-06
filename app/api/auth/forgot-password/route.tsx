@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getAppUrl } from "@/lib/app-url"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
     // For now, we'll just log the reset link
     const resetLink = `${getAppUrl()}/auth/reset-password?token=${token}`
 
-    console.log(`[v0] Password reset link for ${email}: ${resetLink}`)
 
     // If EMAIL_API_KEY is available, send email
     if (process.env.EMAIL_API_KEY) {

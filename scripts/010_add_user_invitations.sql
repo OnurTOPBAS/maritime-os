@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS user_invitations (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_user_invitations_company ON user_invitations(company_id);
-CREATE INDEX idx_user_invitations_token ON user_invitations(token);
-CREATE INDEX idx_user_invitations_email ON user_invitations(email);
+CREATE INDEX IF NOT EXISTS idx_user_invitations_company ON user_invitations(company_id);
+CREATE INDEX IF NOT EXISTS idx_user_invitations_token ON user_invitations(token);
+CREATE INDEX IF NOT EXISTS idx_user_invitations_email ON user_invitations(email);

@@ -25,7 +25,6 @@ export async function GET() {
 
       // If it's a rate limit error, return 0 count instead of failing
       if (dbError?.message?.includes("Too Many Requests") || dbError?.message?.includes("rate limit")) {
-        console.log("[v0] Rate limited, returning 0 count")
         return NextResponse.json({ count: 0 })
       }
 

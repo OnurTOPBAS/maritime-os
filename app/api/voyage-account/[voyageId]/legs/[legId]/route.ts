@@ -1,20 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function PUT(request: NextRequest, { params }: { params: { voyageId: string; legId: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; legId: string }> },
+) {
   try {
-    await requireAuth()
-    const { voyageId, legId } = params
+    const user = await requireAuth()
+    const { voyageId, legId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canEdit")
+
     const body = await request.json()
 
-    // Get voyage service speed for calculation
     const voyage = await sql`SELECT service_speed FROM voyages WHERE id = ${voyageId}`
-    const serviceSpeed = voyage[0]?.service_speed || 12
+    const serviceSpeed = Number(voyage[0]?.service_speed) || 12
 
-    // Calculate sea days
     const seaDays = body.distance_nm / (serviceSpeed * 24)
 
     const result = await sql`
@@ -31,23 +34,38 @@ export async function PUT(request: NextRequest, { params }: { params: { voyageId
       RETURNING *
     `
 
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Bacak kaydı bulunamadı" }, { status: 404 })
+    }
+
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Update voyage leg error:", error)
-    return NextResponse.json({ error: "Failed to update voyage leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacağı güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { voyageId: string; legId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; legId: string }> },
+) {
   try {
-    await requireAuth()
-    const { legId } = params
+    const user = await requireAuth()
+    const { voyageId, legId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canDelete")
 
-    await sql`DELETE FROM voyage_legs WHERE id = ${legId}`
+    // voyage_id koşulu olmadan başka bir sefere ait bacak silinebilirdi.
+    const result = await sql`
+      DELETE FROM voyage_legs
+      WHERE id = ${legId} AND voyage_id = ${voyageId}
+      RETURNING id
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Bacak kaydı bulunamadı" }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete voyage leg error:", error)
-    return NextResponse.json({ error: "Failed to delete voyage leg" }, { status: 500 })
+    return handleApiError(error, "Sefer bacağı silme")
   }
 }

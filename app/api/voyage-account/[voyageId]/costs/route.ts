@@ -1,13 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function GET(request: NextRequest, { params }: { params: { voyageId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ voyageId: string }> }) {
   try {
-    await requireAuth()
-    const { voyageId } = params
+    const user = await requireAuth()
+    const { voyageId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canView")
 
     const costs = await sql`
       SELECT * FROM voyage_cost_items
@@ -17,15 +18,16 @@ export async function GET(request: NextRequest, { params }: { params: { voyageId
 
     return NextResponse.json(costs)
   } catch (error) {
-    console.error("[v0] Get voyage costs error:", error)
-    return NextResponse.json({ error: "Failed to fetch voyage costs" }, { status: 500 })
+    return handleApiError(error, "Sefer maliyetleri")
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { voyageId: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ voyageId: string }> }) {
   try {
-    await requireAuth()
-    const { voyageId } = params
+    const user = await requireAuth()
+    const { voyageId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canCreate")
+
     const body = await request.json()
 
     const result = await sql`
@@ -40,7 +42,6 @@ export async function POST(request: NextRequest, { params }: { params: { voyageI
 
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {
-    console.error("[v0] Create voyage cost error:", error)
-    return NextResponse.json({ error: "Failed to create voyage cost" }, { status: 500 })
+    return handleApiError(error, "Sefer maliyeti oluşturma")
   }
 }

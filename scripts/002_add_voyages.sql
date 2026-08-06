@@ -42,5 +42,5 @@ CREATE TABLE IF NOT EXISTS voyages (
 );
 
 -- Create index for better performance
-CREATE INDEX idx_voyages_fixture ON voyages(fixture_id);
-CREATE INDEX idx_voyages_status ON voyages(status);
+CREATE INDEX IF NOT EXISTS idx_voyages_fixture ON voyages(fixture_id);
+CREATE INDEX IF NOT EXISTS idx_voyages_status ON voyages(status);

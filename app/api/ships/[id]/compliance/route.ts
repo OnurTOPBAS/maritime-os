@@ -1,12 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { isValidUUID } from "@/lib/utils"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireShipAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const shipId = params.id
+    const user = await requireAuth()
+    const { id: shipId } = await params
+    await requireShipAccess(user.id, shipId, "canView")
 
     if (!isValidUUID(shipId)) {
       return NextResponse.json({ error: "Invalid ship ID" }, { status: 400 })

@@ -1,21 +1,44 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getSession } from "@/lib/auth"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireCompanyAccess, listAssignableRoles } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
+/** Ekip üyesine atanabilecek roller. Serbest metin kabul edilmez. */
+/**
+ * Rol geçerliliği veritabanındaki roles tablosundan doğrulanır.
+ * Önceden sabit bir liste vardı ve yalnızca admin/manager/viewer kabul
+ * ediliyordu; bu yüzden Operations/Technical/Finance Manager gibi tanımlı
+ * roller ekip üyesine atanamıyordu.
+ */
+async function assertValidRole(role: unknown): Promise<string> {
+  const roles = await listAssignableRoles()
+  const slugs = roles.map((r) => r.slug)
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  if (typeof role !== "string" || !slugs.includes(role)) {
+    throw new InvalidRoleError(slugs)
+  }
+
+  return role
+}
+
+class InvalidRoleError extends Error {
+  constructor(readonly allowed: string[]) {
+    super(`Geçersiz rol. İzin verilenler: ${allowed.join(", ")}`)
+    this.name = "InvalidRoleError"
+  }
+}
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession()
-    if (!session?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    const { id: companyId } = await params
 
-    const companyId = params.id
+    // Sadece şirkete erişimi olanlar ekip listesini görebilir.
+    await requireCompanyAccess(user.id, companyId, "canView")
 
-    // Get team members
     const teamMembers = await sql`
-      SELECT 
+      SELECT
         ctm.id,
         ctm.user_id,
         ctm.role,
@@ -33,44 +56,58 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json(teamMembers)
   } catch (error) {
-    console.error("Error fetching team members:", error)
-    return NextResponse.json({ error: "Failed to fetch team members" }, { status: 500 })
+    return handleApiError(error, "Ekip listesi")
   }
 }
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await getSession()
-    if (!session?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    const { id: companyId } = await params
 
-    const companyId = params.id
+    // Ekibe üye eklemek bir yönetim işlemidir: viewer yapamaz.
+    await requireCompanyAccess(user.id, companyId, "canCreate")
+
     const { userId, role } = await request.json()
 
-    // Get current user
-    const [currentUser] = await sql`SELECT id FROM users WHERE email = ${session.email}`
+    if (!userId) {
+      return NextResponse.json({ error: "userId zorunludur" }, { status: 400 })
+    }
 
-    // Check if user is already a team member
+    // Rol allow-list'e karşı doğrulanır; aksi halde herkes kendini
+    // istediği role (örn. admin) atayabilirdi.
+    let validRole: string
+    try {
+      validRole = await assertValidRole(role)
+    } catch (roleError) {
+      if (roleError instanceof InvalidRoleError) {
+        return NextResponse.json({ error: roleError.message }, { status: 400 })
+      }
+      throw roleError
+    }
+
+    // Yalnızca admin, başka birine admin rolü verebilir.
+    if (role === "admin") {
+      await requireCompanyAccess(user.id, companyId, "canDelete")
+    }
+
     const [existing] = await sql`
-      SELECT id FROM company_team_members 
+      SELECT id FROM company_team_members
       WHERE company_id = ${companyId} AND user_id = ${userId}
     `
 
     if (existing) {
-      return NextResponse.json({ error: "User is already a team member" }, { status: 400 })
+      return NextResponse.json({ error: "Kullanıcı zaten ekip üyesi" }, { status: 400 })
     }
 
-    // Add team member
     const [teamMember] = await sql`
       INSERT INTO company_team_members (company_id, user_id, role, added_by)
-      VALUES (${companyId}, ${userId}, ${role}, ${currentUser.id})
+      VALUES (${companyId}, ${userId}, ${validRole}, ${user.id})
       RETURNING *
     `
 
-    return NextResponse.json(teamMember)
+    return NextResponse.json(teamMember, { status: 201 })
   } catch (error) {
-    console.error("Error adding team member:", error)
-    return NextResponse.json({ error: "Failed to add team member" }, { status: 500 })
+    return handleApiError(error, "Ekip üyesi ekleme")
   }
 }

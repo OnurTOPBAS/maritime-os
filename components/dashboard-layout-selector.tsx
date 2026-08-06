@@ -67,7 +67,15 @@ export function DashboardLayoutSelector({ currentLayout, customLayouts, onLayout
     setOpen(false)
   }
 
-  const allLayouts = [
+  // Hazır ve özel layout'lar birlikte listelenir. Açık tip verilmezse
+  // TypeScript yalnızca ilk dizinin şeklini varsayar ve özel layout'lara
+  // ait `custom` / `areas` alanları görünmez olur.
+  type LayoutOption = (typeof PRESET_LAYOUTS)[number] & {
+    custom?: boolean
+    areas?: CustomLayout["areas"]
+  }
+
+  const allLayouts: LayoutOption[] = [
     ...PRESET_LAYOUTS,
     ...customLayouts.map((layout) => ({
       id: layout.id,

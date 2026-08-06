@@ -1,18 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
-import { del } from "@vercel/blob"
+import { deleteFile } from "@/lib/storage"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string; documentId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string; documentId: string }> }) {
   try {
     const user = await requireAuth()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { documentId } = params
+    const { documentId } = await params
     const data = await request.json()
 
     // Verify user has access to this document
@@ -52,14 +51,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string; documentId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string; documentId: string }> }) {
   try {
     const user = await requireAuth()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { documentId } = params
+    const { documentId } = await params
 
     const documents = await sql`
       SELECT d.file_url
@@ -80,7 +79,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Delete from blob storage
     try {
-      await del(documents[0].file_url)
+      await deleteFile(documents[0].file_url)
     } catch (error) {
       console.error("Error deleting from blob storage:", error)
     }

@@ -1,59 +1,77 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/session"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { canAccessCompany, ForbiddenError, NotFoundError } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
+/**
+ * Departman güncelleme/silme.
+ *
+ * `user.companyId` alanı oturum nesnesinde bulunmadığından koşul daima
+ * `company_id = NULL` oluyor, hiçbir kayıt eşleşmiyordu. Şirket artık
+ * departman kaydından okunup erişim doğrulanıyor.
+ */
+async function requireDepartmentAccess(
+  userId: string,
+  departmentId: string,
+  action: "canEdit" | "canDelete",
+) {
+  const [department] = await sql`
+    SELECT company_id FROM departments WHERE id = ${departmentId}
+  `
+  if (!department) throw new NotFoundError("Departman bulunamadı")
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  if (!(await canAccessCompany(userId, department.company_id, action))) {
+    throw new ForbiddenError()
+  }
+
+  return department.company_id as string
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    const { id } = await params
 
-    const body = await request.json()
-    const { name, description, managerId } = body
+    await requireDepartmentAccess(user.id, id, "canEdit")
+
+    const { name, description, managerId } = await request.json()
+
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
+      return NextResponse.json({ error: "Departman adı zorunludur" }, { status: 400 })
+    }
 
     const result = await sql`
       UPDATE departments
-      SET 
-        name = ${name},
+      SET
+        name = ${name.trim()},
         description = ${description || null},
         manager_id = ${managerId || null},
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${params.id} AND company_id = ${user.companyId}
+      WHERE id = ${id}
       RETURNING *
     `
 
-    if (result.length === 0) {
-      return NextResponse.json({ error: "Departman bulunamadı" }, { status: 404 })
-    }
-
     return NextResponse.json(result[0])
   } catch (error: any) {
-    console.error("Error updating department:", error)
-    if (error.code === "23505") {
+    if (error?.code === "23505") {
       return NextResponse.json({ error: "Bu isimde bir departman zaten mevcut" }, { status: 400 })
     }
-    return NextResponse.json({ error: "Departman güncellenirken hata oluştu" }, { status: 500 })
+    return handleApiError(error, "Departman güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    const { id } = await params
 
-    await sql`
-      DELETE FROM departments
-      WHERE id = ${params.id} AND company_id = ${user.companyId}
-    `
+    await requireDepartmentAccess(user.id, id, "canDelete")
+
+    await sql`DELETE FROM departments WHERE id = ${id}`
 
     return NextResponse.json({ message: "Departman silindi" })
   } catch (error) {
-    console.error("Error deleting department:", error)
-    return NextResponse.json({ error: "Departman silinirken hata oluştu" }, { status: 500 })
+    return handleApiError(error, "Departman silme")
   }
 }

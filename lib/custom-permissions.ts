@@ -1,6 +1,4 @@
-import { neon } from "@neondatabase/serverless"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { sql } from "./db"
 
 export type Module = "ships" | "fixtures" | "voyages" | "invoices" | "reports" | "users" | "settings"
 export type DataScope = "all" | "own" | "department"
@@ -20,7 +18,7 @@ export interface ModulePermissions {
 }
 
 // Get custom permissions for a user
-export async function getCustomPermissions(userId: number, companyId: number): Promise<ModulePermissions> {
+export async function getCustomPermissions(userId: string, companyId: string): Promise<ModulePermissions> {
   try {
     const permissions = await sql`
       SELECT 
@@ -57,8 +55,8 @@ export async function getCustomPermissions(userId: number, companyId: number): P
 
 // Check if user has permission for a specific module and action
 export async function hasModulePermission(
-  userId: number,
-  companyId: number,
+  userId: string,
+  companyId: string,
   module: Module,
   action: "view" | "create" | "edit" | "delete" | "export",
 ): Promise<boolean> {
@@ -118,8 +116,8 @@ export async function hasModulePermission(
 
 // Set custom permissions for a user
 export async function setCustomPermissions(
-  userId: number,
-  companyId: number,
+  userId: string,
+  companyId: string,
   module: Module,
   permissions: Partial<CustomPermission>,
 ): Promise<void> {

@@ -1,61 +1,60 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/session"
+import { requireAuth } from "@/lib/session"
+import { requireCompanyAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { getCustomPermissions, setCustomPermissions, type Module } from "@/lib/custom-permissions"
-import { neon } from "@neondatabase/serverless"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
+/**
+ * Bir kullanıcının şirket bazlı özel izinleri.
+ *
+ * Önceki hali çalışmıyordu: currentUser.companyId diye bir alan yok
+ * (getSession yalnızca id/email/name döndürür) ve UUID olan userId'ye
+ * parseInt uygulanıyordu (NaN). Artık şirket sorgu parametresiyle
+ * belirtilir ve o şirkette yönetici yetkisi aranır.
+ */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 })
+    const currentUser = await requireAuth()
+    const { userId } = await params
+
+    const companyId = request.nextUrl.searchParams.get("companyId")
+    if (!companyId) {
+      return NextResponse.json({ error: "companyId parametresi zorunludur" }, { status: 400 })
     }
 
-    // Check if current user is admin
-    const roleCheck = await sql`
-      SELECT role FROM user_permissions
-      WHERE user_id = ${currentUser.id} AND company_id = ${currentUser.companyId}
-    `
+    // İzinleri görüntülemek yönetim işlemidir (canDelete = admin seviyesi).
+    await requireCompanyAccess(currentUser.id, companyId, "canDelete")
 
-    if (roleCheck.length === 0 || roleCheck[0].role !== "admin") {
-      return NextResponse.json({ error: "Bu işlem için yetkiniz yok" }, { status: 403 })
-    }
-
-    const permissions = await getCustomPermissions(Number.parseInt(params.userId), currentUser.companyId)
+    const permissions = await getCustomPermissions(userId, companyId)
 
     return NextResponse.json(permissions)
   } catch (error) {
-    console.error("Error fetching permissions:", error)
-    return NextResponse.json({ error: "İzinler yüklenirken hata oluştu" }, { status: 500 })
+    return handleApiError(error, "Özel izinler")
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { userId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return NextResponse.json({ error: "Yetkisiz erişim" }, { status: 401 })
-    }
-
-    // Check if current user is admin
-    const roleCheck = await sql`
-      SELECT role FROM user_permissions
-      WHERE user_id = ${currentUser.id} AND company_id = ${currentUser.companyId}
-    `
-
-    if (roleCheck.length === 0 || roleCheck[0].role !== "admin") {
-      return NextResponse.json({ error: "Bu işlem için yetkiniz yok" }, { status: 403 })
-    }
+    const currentUser = await requireAuth()
+    const { userId } = await params
 
     const body = await request.json()
-    const { module, permissions } = body
+    const { module, permissions, companyId } = body
 
-    await setCustomPermissions(Number.parseInt(params.userId), currentUser.companyId, module as Module, permissions)
+    if (!companyId) {
+      return NextResponse.json({ error: "companyId zorunludur" }, { status: 400 })
+    }
+
+    await requireCompanyAccess(currentUser.id, companyId, "canDelete")
+
+    if (!module) {
+      return NextResponse.json({ error: "module zorunludur" }, { status: 400 })
+    }
+
+    await setCustomPermissions(userId, companyId, module as Module, permissions)
 
     return NextResponse.json({ message: "İzinler güncellendi" })
   } catch (error) {
-    console.error("Error updating permissions:", error)
-    return NextResponse.json({ error: "İzinler güncellenirken hata oluştu" }, { status: 500 })
+    return handleApiError(error, "Özel izin güncelleme")
   }
 }

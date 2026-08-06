@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
+import { sql } from "@/lib/db"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
-    const { id: invoiceId } = params
+    const { id: invoiceId } = await params
     const body = await request.json()
 
     // Verify invoice ownership
@@ -29,8 +29,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     `
 
     return NextResponse.json(result[0], { status: 201 })
-  } catch (error: any) {
-    console.error("[v0] Error creating payment:", error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "[v0] Error creating payment:")
   }
 }

@@ -19,5 +19,5 @@ CREATE TABLE IF NOT EXISTS certificate_notifications (
   status VARCHAR(50) DEFAULT 'sent'
 );
 
-CREATE INDEX idx_certificate_notifications_certificate ON certificate_notifications(certificate_id);
-CREATE INDEX idx_certificate_notifications_sent_at ON certificate_notifications(sent_at);
+CREATE INDEX IF NOT EXISTS idx_certificate_notifications_certificate ON certificate_notifications(certificate_id);
+CREATE INDEX IF NOT EXISTS idx_certificate_notifications_sent_at ON certificate_notifications(sent_at);

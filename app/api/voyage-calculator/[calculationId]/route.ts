@@ -2,10 +2,10 @@ import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 
-export async function GET(request: NextRequest, { params }: { params: { calculationId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ calculationId: string }> }) {
   try {
     const user = await requireAuth()
-    const { calculationId } = params
+    const { calculationId } = await params
 
     const result = await sql`
       SELECT vc.* FROM voyage_calculations vc
@@ -82,10 +82,10 @@ export async function GET(request: NextRequest, { params }: { params: { calculat
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { calculationId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ calculationId: string }> }) {
   try {
     const user = await requireAuth()
-    const { calculationId } = params
+    const { calculationId } = await params
     const body = await request.json()
 
     const {
@@ -202,10 +202,10 @@ export async function PUT(request: NextRequest, { params }: { params: { calculat
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { calculationId: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ calculationId: string }> }) {
   try {
     const user = await requireAuth()
-    const { calculationId } = params
+    const { calculationId } = await params
 
     const checkAccess = await sql`
       SELECT vc.id FROM voyage_calculations vc

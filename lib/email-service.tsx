@@ -9,7 +9,6 @@ interface EmailOptions {
 
 export async function sendEmail({ to, subject, html }: EmailOptions) {
   // For now, we'll log the email. In production, integrate with an email service
-  console.log("[v0] Email would be sent:", { to, subject })
 
   // Example integration with a hypothetical email service:
   // const response = await fetch('https://api.emailservice.com/send', {

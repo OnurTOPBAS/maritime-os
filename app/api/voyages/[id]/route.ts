@@ -1,63 +1,51 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/session"
+import { sql } from "@/lib/db"
+import { requireResourceAccess, resolveVoyageCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   return uuidRegex.test(id)
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid voyage ID format" }, { status: 404 })
     }
 
+
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveVoyageCompany, id, "voyages", "view", "Sefer bulunamadı")
+
     const result = await sql`
-      SELECT 
-        v.*,
-        f.charterer,
-        f.laycan_from,
-        f.laycan_to,
-        f.rate as freight_rate,
-        f.rate_type as freight_rate_type,
-        f.cargo_type,
-        f.demurrage_rate,
-        s.name as ship_name,
-        s.imo_number,
-        fl.name as fleet_name,
-        c.name as company_name
+      SELECT v.*, f.charterer, s.name as ship_name, s.imo_number
       FROM voyages v
       JOIN fixtures f ON v.fixture_id = f.id
       JOIN ships s ON f.ship_id = s.id
-      JOIN fleets fl ON s.fleet_id = fl.id
-      JOIN companies c ON fl.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
       WHERE v.id = ${id}
-      AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
     `
-
     if (result.length === 0) {
-      return NextResponse.json({ error: "Voyage not found or access denied" }, { status: 404 })
+      return NextResponse.json({ error: "Sefer bulunamadı" }, { status: 404 })
     }
 
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Get voyage error:", error)
-    return NextResponse.json({ error: "Failed to fetch voyage" }, { status: 500 })
+    return handleApiError(error, "Sefer getirme")
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user?.id) {
@@ -65,26 +53,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const body = await request.json()
-    const { id } = params
+    const { id } = await params
 
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid voyage ID format" }, { status: 400 })
     }
 
-    const accessCheck = await sql`
-      SELECT v.id FROM voyages v
-      JOIN fixtures f ON v.fixture_id = f.id
-      JOIN ships s ON f.ship_id = s.id
-      JOIN fleets fl ON s.fleet_id = fl.id
-      JOIN companies c ON fl.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE v.id = ${id}
-      AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
 
-    if (accessCheck.length === 0) {
-      return NextResponse.json({ error: "Voyage not found or access denied" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveVoyageCompany, id, "voyages", "edit", "Sefer bulunamadı")
 
     const result = await sql`
       UPDATE voyages SET
@@ -124,44 +102,32 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Update voyage error:", error)
-    return NextResponse.json({ error: "Failed to update voyage" }, { status: 500 })
+    return handleApiError(error, "Sefer güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = params
+    const { id } = await params
 
     if (!isValidUUID(id)) {
       return NextResponse.json({ error: "Invalid voyage ID format" }, { status: 400 })
     }
 
-    const accessCheck = await sql`
-      SELECT v.id FROM voyages v
-      JOIN fixtures f ON v.fixture_id = f.id
-      JOIN ships s ON f.ship_id = s.id
-      JOIN fleets fl ON s.fleet_id = fl.id
-      JOIN companies c ON fl.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE v.id = ${id}
-      AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
 
-    if (accessCheck.length === 0) {
-      return NextResponse.json({ error: "Voyage not found or access denied" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveVoyageCompany, id, "voyages", "delete", "Sefer bulunamadı")
 
     await sql`DELETE FROM voyages WHERE id = ${id}`
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete voyage error:", error)
-    return NextResponse.json({ error: "Failed to delete voyage" }, { status: 500 })
+    return handleApiError(error, "Sefer silme")
   }
 }

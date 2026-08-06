@@ -1,21 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireCertificateAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { isValidUUID } from "@/lib/utils"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function GET(request: NextRequest, { params }: { params: { certificateId: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ certificateId: string }> },
+) {
   try {
-    await requireAuth()
-    const { certificateId } = params
+    const user = await requireAuth()
+    const { certificateId } = await params
 
     if (!isValidUUID(certificateId)) {
-      return NextResponse.json({ error: "Invalid certificate ID" }, { status: 400 })
+      return NextResponse.json({ error: "Geçersiz sertifika kimliği" }, { status: 400 })
     }
 
+    await requireCertificateAccess(user.id, certificateId, "canView")
+
     const auditLogs = await sql`
-      SELECT 
+      SELECT
         cal.*,
         u.name as user_name,
         u.email as user_email
@@ -27,7 +32,6 @@ export async function GET(request: NextRequest, { params }: { params: { certific
 
     return NextResponse.json(auditLogs)
   } catch (error) {
-    console.error("[v0] Get audit log error:", error)
-    return NextResponse.json({ error: "Failed to get audit log" }, { status: 500 })
+    return handleApiError(error, "Sertifika denetim kaydı")
   }
 }

@@ -88,11 +88,11 @@ CREATE TABLE IF NOT EXISTS voyage_revenue_items (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_voyage_legs_voyage ON voyage_legs(voyage_id);
-CREATE INDEX idx_voyage_activities_voyage ON voyage_activities(voyage_id);
-CREATE INDEX idx_voyage_bunker_prices_voyage ON voyage_bunker_prices(voyage_id);
-CREATE INDEX idx_voyage_cost_items_voyage ON voyage_cost_items(voyage_id);
-CREATE INDEX idx_voyage_revenue_items_voyage ON voyage_revenue_items(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_voyage_legs_voyage ON voyage_legs(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_voyage_activities_voyage ON voyage_activities(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_voyage_bunker_prices_voyage ON voyage_bunker_prices(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_voyage_cost_items_voyage ON voyage_cost_items(voyage_id);
+CREATE INDEX IF NOT EXISTS idx_voyage_revenue_items_voyage ON voyage_revenue_items(voyage_id);
 
 -- Add RLS (Row Level Security) policies
 ALTER TABLE voyage_legs ENABLE ROW LEVEL SECURITY;
@@ -102,6 +102,7 @@ ALTER TABLE voyage_cost_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE voyage_revenue_items ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies: Users can only access their own voyage data
+DROP POLICY IF EXISTS voyage_legs_policy ON voyage_legs;
 CREATE POLICY voyage_legs_policy ON voyage_legs
   USING (
     voyage_id IN (
@@ -114,6 +115,7 @@ CREATE POLICY voyage_legs_policy ON voyage_legs
     )
   );
 
+DROP POLICY IF EXISTS voyage_activities_policy ON voyage_activities;
 CREATE POLICY voyage_activities_policy ON voyage_activities
   USING (
     voyage_id IN (
@@ -126,6 +128,7 @@ CREATE POLICY voyage_activities_policy ON voyage_activities
     )
   );
 
+DROP POLICY IF EXISTS voyage_bunker_prices_policy ON voyage_bunker_prices;
 CREATE POLICY voyage_bunker_prices_policy ON voyage_bunker_prices
   USING (
     voyage_id IN (
@@ -138,6 +141,7 @@ CREATE POLICY voyage_bunker_prices_policy ON voyage_bunker_prices
     )
   );
 
+DROP POLICY IF EXISTS voyage_cost_items_policy ON voyage_cost_items;
 CREATE POLICY voyage_cost_items_policy ON voyage_cost_items
   USING (
     voyage_id IN (
@@ -150,6 +154,7 @@ CREATE POLICY voyage_cost_items_policy ON voyage_cost_items
     )
   );
 
+DROP POLICY IF EXISTS voyage_revenue_items_policy ON voyage_revenue_items;
 CREATE POLICY voyage_revenue_items_policy ON voyage_revenue_items
   USING (
     voyage_id IN (

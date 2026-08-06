@@ -1,23 +1,29 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getSession } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import * as XLSX from "xlsx"
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession()
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { certificateIds } = await request.json()
 
-    if (!certificateIds || certificateIds.length === 0) {
-      return NextResponse.json({ error: "No certificates selected" }, { status: 400 })
+    if (!Array.isArray(certificateIds) || certificateIds.length === 0) {
+      return NextResponse.json({ error: "Sertifika seçilmedi" }, { status: 400 })
+    }
+
+    // Erişilebilir şirketler ile sınırlanır: istenen kimlikler arasında
+    // başka şirkete ait sertifika varsa sorgu onları getirmez.
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json({ error: "Erişilebilir sertifika yok" }, { status: 403 })
     }
 
     const certificates = await sql`
-      SELECT 
+      SELECT
         s.name as ship_name,
         sc.certificate_name,
         sc.certificate_type,
@@ -32,8 +38,8 @@ export async function POST(request: Request) {
       FROM ship_certificates sc
       JOIN ships s ON sc.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ${session.user.companyId}
-        AND sc.id = ANY(${certificateIds})
+      WHERE f.company_id = ANY(${allowedCompanyIds}::uuid[])
+        AND sc.id = ANY(${certificateIds}::uuid[])
       ORDER BY s.name, sc.certificate_name
     `
 
@@ -66,7 +72,6 @@ export async function POST(request: Request) {
       },
     })
   } catch (error) {
-    console.error("[v0] Error bulk exporting certificates:", error)
-    return NextResponse.json({ error: "Failed to export certificates" }, { status: 500 })
+    return handleApiError(error, "Sertifika dışa aktarma")
   }
 }

@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireModuleAccess, getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 import { logActivity } from "@/lib/audit-logger"
 import { validateInvoice } from "@/lib/validation"
 
@@ -180,20 +182,17 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(result || [])
-  } catch (error: any) {
-    console.error("Error fetching invoices:", error.message)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Fatura listesi")
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Invoice POST request started")
 
     let user
     try {
       user = await requireAuth()
-      console.log("[v0] User authenticated:", user.id)
     } catch (authError: any) {
       console.error("[v0] Authentication failed:", authError.message)
       return NextResponse.json({ error: "Authentication required" }, { status: 401 })
@@ -202,36 +201,30 @@ export async function POST(request: NextRequest) {
     let body
     try {
       body = await request.json()
-      console.log("[v0] Invoice POST request body:", JSON.stringify(body, null, 2))
     } catch (parseError: any) {
       console.error("[v0] Failed to parse request body:", parseError.message)
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
     }
 
     if (!body.companyId) {
-      console.log("[v0] Missing companyId in request")
       return NextResponse.json({ error: "Company ID is required" }, { status: 400 })
     }
 
     const validationErrors = validateInvoice(body)
     if (validationErrors.length > 0) {
-      console.log("[v0] Validation errors:", validationErrors)
       return NextResponse.json({ errors: validationErrors }, { status: 400 })
     }
-    console.log("[v0] Validation passed")
 
     const existingInvoice = await sql`
       SELECT id FROM invoices 
       WHERE invoice_number = ${body.invoiceNumber} AND company_id = ${body.companyId}
     `
     if (existingInvoice.length > 0) {
-      console.log("[v0] Duplicate invoice number found")
       return NextResponse.json(
         { errors: [{ field: "invoiceNumber", message: "Bu fatura numarası zaten kullanılıyor" }] },
         { status: 400 },
       )
     }
-    console.log("[v0] No duplicate invoice number")
 
     const {
       companyId,
@@ -257,21 +250,12 @@ export async function POST(request: NextRequest) {
       notes,
     } = body
 
-    console.log("[v0] Checking company access for company:", companyId)
-    const companies = await sql`
-      SELECT c.id 
-      FROM companies c
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE c.id = ${companyId} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-    console.log("[v0] Company access check result:", companies.length > 0 ? "Access granted" : "Access denied")
+    // Fatura oluşturmak için "invoices" modülünde yazma yetkisi gerekir.
+    // Önceki kontrol yalnızca company_team_members üyeliğine bakıyordu:
+    //  - user_permissions'a eklenen üyeler hiç tanınmıyordu (404),
+    //  - rol ayrımı yapılmadığı için viewer bile fatura oluşturabiliyordu.
+    await requireModuleAccess(user.id, companyId, "invoices", "create")
 
-    if (companies.length === 0) {
-      console.log("[v0] Company not found or user has no access")
-      return NextResponse.json({ error: "Company not found or access denied" }, { status: 404 })
-    }
-
-    console.log("[v0] Inserting invoice with enhanced fields")
 
     const result = await sql`
       INSERT INTO invoices (
@@ -292,7 +276,6 @@ export async function POST(request: NextRequest) {
       RETURNING *
     `
 
-    console.log("[v0] Invoice inserted successfully:", result[0].id)
 
     await logActivity({
       userId: user.id,
@@ -302,17 +285,10 @@ export async function POST(request: NextRequest) {
       changes: { after: result[0] },
     })
 
-    console.log("[v0] Activity logged, returning response")
     return NextResponse.json(result[0], { status: 201 })
-  } catch (error: any) {
-    console.error("[v0] Error creating invoice:", error)
-    console.error("[v0] Error details:", {
-      message: error.message,
-      code: error.code,
-      detail: error.detail,
-      hint: error.hint,
-      stack: error.stack,
-    })
-    return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+  } catch (error) {
+    // handleApiError yetki hatasını 403'e çevirir; önceki kod her hatayı
+    // 500 yapıyor ve iç hata mesajını istemciye sızdırıyordu.
+    return handleApiError(error, "Fatura oluşturma")
   }
 }

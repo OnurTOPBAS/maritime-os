@@ -1,17 +1,19 @@
 import { NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-
-const sql = neon(process.env.DATABASE_URL!)
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET() {
   try {
+    // İzin kataloğu sistemin yetki haritasıdır; herkese açık olmamalı.
+    await requireAuth()
+
     const permissions = await sql`
       SELECT * FROM permissions
       ORDER BY module, action
     `
     return NextResponse.json(permissions)
   } catch (error) {
-    console.error("Error fetching permissions:", error)
-    return NextResponse.json({ error: "Failed to fetch permissions" }, { status: 500 })
+    return handleApiError(error, "İzin listesi")
   }
 }

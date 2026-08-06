@@ -9,4 +9,4 @@ CREATE TABLE IF NOT EXISTS dashboard_preferences (
   UNIQUE(user_id)
 );
 
-CREATE INDEX idx_dashboard_preferences_user ON dashboard_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_dashboard_preferences_user ON dashboard_preferences(user_id);

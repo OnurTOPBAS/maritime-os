@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getSession } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
+/** Önümüzdeki 90 gün içinde süresi dolacak sertifikalar. */
 export async function GET() {
   try {
-    const session = await getSession()
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireAuth()
+
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json([])
     }
 
-    // Get certificates expiring in the next 90 days
     const certificates = await sql`
-      SELECT 
+      SELECT
         sc.id,
         sc.certificate_name,
         sc.certificate_type,
@@ -19,11 +23,11 @@ export async function GET() {
         sc.status,
         s.id as ship_id,
         s.name as ship_name,
-        EXTRACT(DAY FROM (sc.expires_date - CURRENT_DATE)) as days_until_expiry
+        (sc.expires_date - CURRENT_DATE) as days_until_expiry
       FROM ship_certificates sc
       JOIN ships s ON sc.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ${session.user.companyId}
+      WHERE f.company_id = ANY(${allowedCompanyIds}::uuid[])
         AND sc.expires_date IS NOT NULL
         AND sc.expires_date >= CURRENT_DATE
         AND sc.expires_date <= CURRENT_DATE + INTERVAL '90 days'
@@ -45,7 +49,6 @@ export async function GET() {
       })),
     )
   } catch (error) {
-    console.error("[v0] Error fetching expiring certificates:", error)
-    return NextResponse.json({ error: "Failed to fetch certificates" }, { status: 500 })
+    return handleApiError(error, "Süresi dolan sertifikalar")
   }
 }

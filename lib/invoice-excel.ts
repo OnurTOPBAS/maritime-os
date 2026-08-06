@@ -18,43 +18,65 @@ export interface InvoiceExcelRow {
   Notlar: string
 }
 
-const invoiceTypeMap = {
+/*
+ * Çeviri tabloları iki yönlüdür ve yön başına ayrı tanımlanır.
+ * Önceden tek nesnede birleşiktiler; bu, TypeScript'in değer tipini iki dilin
+ * birleşimi olarak çıkarmasına ve dışa aktarım satır tipiyle uyuşmamasına
+ * yol açıyordu. Ayrıca hangi yönün kullanıldığı okurken belirsizdi.
+ */
+
+/** Excel (Türkçe) -> veritabanı (İngilizce). İçe aktarımda kullanılır. */
+const invoiceTypeToDb = {
   Navlun: "freight",
   AWRP: "awrp",
   Demuraj: "demurrage",
   Diğer: "other",
+} as const
+
+/** Veritabanı -> Excel. Dışa aktarımda kullanılır. */
+const invoiceTypeToExcel = {
   freight: "Navlun",
   awrp: "AWRP",
   demurrage: "Demuraj",
   other: "Diğer",
-}
+} as const
 
-const typeMap = {
+const typeToDb = {
   Gelir: "income",
   Gider: "expense",
+} as const
+
+const typeToExcel = {
   income: "Gelir",
   expense: "Gider",
-}
+} as const
 
-const statusMap = {
+const statusToDb = {
   Beklemede: "pending",
   Ödendi: "paid",
   "Vadesi Geçti": "overdue",
   İptal: "cancelled",
+} as const
+
+const statusToExcel = {
   pending: "Beklemede",
   paid: "Ödendi",
   overdue: "Vadesi Geçti",
   cancelled: "İptal",
-}
+} as const
 
-const commissionStatusMap = {
+const commissionStatusToDb = {
   Beklemede: "pending",
   "Tahsil Edildi": "received",
   Gecikmiş: "overdue",
+} as const
+
+const commissionStatusToExcel = {
   pending: "Beklemede",
   received: "Tahsil Edildi",
   overdue: "Gecikmiş",
-}
+} as const
+
 
 export function generateInvoiceTemplate(): Blob {
   const template: InvoiceExcelRow[] = [
@@ -137,17 +159,17 @@ export function parseInvoiceExcel(file: File): Promise<any[]> {
           invoice_number: row["Fatura No"],
           invoice_date: row["Fatura Tarihi"],
           due_date: row["Vade Tarihi"],
-          invoice_type: invoiceTypeMap[row["Fatura Türü"] as keyof typeof invoiceTypeMap] || "other",
-          type: typeMap[row["Tip"] as keyof typeof typeMap] || "income",
+          invoice_type: invoiceTypeToDb[row["Fatura Türü"] as keyof typeof invoiceTypeToDb] || "other",
+          type: typeToDb[row["Tip"] as keyof typeof typeToDb] || "income",
           ship_name: row["Gemi Adı"],
           charterer: row["Kiracı"],
           amount: Number(row["Tutar"]),
           currency: row["Para Birimi"] || "USD",
-          status: statusMap[row["Durum"] as keyof typeof statusMap] || "pending",
+          status: statusToDb[row["Durum"] as keyof typeof statusToDb] || "pending",
           broker_commission_rate: Number(row["Komisyon Oranı (%)"]) || 0,
           broker_commission: Number(row["Komisyon Tutarı"]) || 0,
           broker_commission_status:
-            commissionStatusMap[row["Komisyon Durumu"] as keyof typeof commissionStatusMap] || "pending",
+            commissionStatusToDb[row["Komisyon Durumu"] as keyof typeof commissionStatusToDb] || "pending",
           description: row["Açıklama"] || "",
           notes: row["Notlar"] || "",
         }))
@@ -168,17 +190,17 @@ export function exportInvoicesToExcel(invoices: any[]): void {
     "Fatura No": invoice.invoice_number,
     "Fatura Tarihi": new Date(invoice.invoice_date).toISOString().split("T")[0],
     "Vade Tarihi": invoice.due_date ? new Date(invoice.due_date).toISOString().split("T")[0] : "",
-    "Fatura Türü": invoiceTypeMap[invoice.invoice_type as keyof typeof invoiceTypeMap] || "Diğer",
-    Tip: typeMap[invoice.type as keyof typeof typeMap] || "Gelir",
+    "Fatura Türü": invoiceTypeToExcel[invoice.invoice_type as keyof typeof invoiceTypeToExcel] || "Diğer",
+    Tip: typeToExcel[invoice.type as keyof typeof typeToExcel] || "Gelir",
     "Gemi Adı": invoice.ship_name || "",
     Kiracı: invoice.charterer || "",
     Tutar: Number(invoice.amount),
     "Para Birimi": invoice.currency || "USD",
-    Durum: statusMap[invoice.status as keyof typeof statusMap] || "Beklemede",
+    Durum: statusToExcel[invoice.status as keyof typeof statusToExcel] || "Beklemede",
     "Komisyon Oranı (%)": Number(invoice.broker_commission_rate) || 0,
     "Komisyon Tutarı": Number(invoice.broker_commission) || 0,
     "Komisyon Durumu":
-      commissionStatusMap[invoice.broker_commission_status as keyof typeof commissionStatusMap] || "Beklemede",
+      commissionStatusToExcel[invoice.broker_commission_status as keyof typeof commissionStatusToExcel] || "Beklemede",
     Açıklama: invoice.description || "",
     Notlar: invoice.notes || "",
   }))

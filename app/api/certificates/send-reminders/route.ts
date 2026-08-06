@@ -4,42 +4,43 @@ import {
   markNotificationSent,
   generateCertificateReminderEmail,
 } from "@/lib/certificate-notifications"
-import { getSession } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function POST() {
   try {
-    const session = await getSession()
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireAuth()
+
+    // Önceden session.user.companyId okunuyordu; böyle bir alan olmadığı için
+    // rota her istekte 401 dönüyor ve hatırlatmalar hiç gönderilmiyordu.
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json({ success: true, remindersSent: 0 })
     }
 
     const reminderDays = [90, 60, 30, 15, 7]
     let totalSent = 0
 
-    for (const days of reminderDays) {
-      const certificates = await getExpiringCertificates(session.user.companyId, days)
+    for (const companyId of allowedCompanyIds) {
+      for (const days of reminderDays) {
+        const certificates = await getExpiringCertificates(companyId, days)
 
-      for (const cert of certificates) {
-        const { subject, html } = generateCertificateReminderEmail(cert)
+        for (const cert of certificates) {
+          generateCertificateReminderEmail(cert)
 
-        // Send to responsible person if assigned, otherwise to company admin
-        const recipient = cert.responsiblePerson?.email || session.user.email
+          // Sorumlu atanmışsa ona, yoksa isteği yapan kullanıcıya.
+          const recipient = cert.responsiblePerson?.email || user.email
 
-        // TODO: Integrate with actual email service
-        console.log(`[v0] Sending certificate reminder to ${recipient}:`, subject)
-
-        // For now, just mark as sent
-        await markNotificationSent(cert.certificateId, days, recipient)
-        totalSent++
+          // NOT: Gerçek e-posta gönderimi henüz bağlanmadı (mevcut davranış korundu).
+          await markNotificationSent(cert.certificateId, days, recipient)
+          totalSent++
+        }
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      remindersSent: totalSent,
-    })
+    return NextResponse.json({ success: true, remindersSent: totalSent })
   } catch (error) {
-    console.error("[v0] Error sending certificate reminders:", error)
-    return NextResponse.json({ error: "Failed to send reminders" }, { status: 500 })
+    return handleApiError(error, "Sertifika hatırlatmaları")
   }
 }

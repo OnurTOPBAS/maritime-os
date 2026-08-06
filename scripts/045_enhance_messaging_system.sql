@@ -62,6 +62,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_update_reply_count ON messages;
 CREATE TRIGGER trigger_update_reply_count
 AFTER INSERT ON messages
 FOR EACH ROW

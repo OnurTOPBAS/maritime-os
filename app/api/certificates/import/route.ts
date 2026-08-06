@@ -24,7 +24,6 @@ export async function POST(request: Request) {
 
     const { certificates, shipId } = await request.json()
 
-    console.log("[v0] Importing certificates:", { count: certificates.length, shipId, companyId })
 
     const results = {
       success: 0,
@@ -115,7 +114,6 @@ export async function POST(request: Request) {
       }
     }
 
-    console.log("[v0] Import results:", results)
     return NextResponse.json(results)
   } catch (error) {
     console.error("[v0] Error importing certificates:", error)

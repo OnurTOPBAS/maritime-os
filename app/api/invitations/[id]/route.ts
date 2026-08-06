@@ -1,11 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/session"
 import { checkPermission } from "@/lib/permissions"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -26,7 +25,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     await sql`
       DELETE FROM user_invitations
-      WHERE id = ${params.id} AND company_id = ${companyId}
+      WHERE id = ${(await params).id} AND company_id = ${companyId}
     `
 
     return NextResponse.json({ message: "Invitation deleted successfully" })

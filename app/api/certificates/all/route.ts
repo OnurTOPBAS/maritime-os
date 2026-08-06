@@ -1,16 +1,28 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
-import { getSession } from "@/lib/auth"
+import { requireAuth } from "@/lib/session"
+import { getAccessibleCompanyIds } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
+/**
+ * Kullanıcının erişebildiği tüm gemi sertifikaları.
+ *
+ * Not: Bu rota daha önce session.user.companyId okuyordu. getSession()
+ * ise { id, email, name } döndürür — user/companyId alanları hiç yok.
+ * Dolayısıyla koşul her zaman doğru olup rota HER İSTEKTE 401 dönüyordu,
+ * yani özellik fiilen çalışmıyordu. Erişim artık üyelik üzerinden belirlenir.
+ */
 export async function GET() {
   try {
-    const session = await getSession()
-    if (!session?.user?.companyId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await requireAuth()
+
+    const allowedCompanyIds = await getAccessibleCompanyIds(user.id)
+    if (allowedCompanyIds.length === 0) {
+      return NextResponse.json([])
     }
 
     const certificates = await sql`
-      SELECT 
+      SELECT
         sc.id,
         sc.certificate_name,
         sc.certificate_type,
@@ -24,13 +36,12 @@ export async function GET() {
       FROM ship_certificates sc
       JOIN ships s ON sc.ship_id = s.id
       JOIN fleets f ON s.fleet_id = f.id
-      WHERE f.company_id = ${session.user.companyId}
+      WHERE f.company_id = ANY(${allowedCompanyIds}::uuid[])
       ORDER BY s.name, sc.certificate_name
     `
 
     return NextResponse.json(certificates)
   } catch (error) {
-    console.error("[v0] Error fetching all certificates:", error)
-    return NextResponse.json({ error: "Failed to fetch certificates" }, { status: 500 })
+    return handleApiError(error, "Sertifika listesi")
   }
 }

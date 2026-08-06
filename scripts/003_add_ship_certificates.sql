@@ -18,9 +18,9 @@ CREATE TABLE IF NOT EXISTS ship_certificates (
 );
 
 -- Create indexes
-CREATE INDEX idx_ship_certificates_ship ON ship_certificates(ship_id);
-CREATE INDEX idx_ship_certificates_expires ON ship_certificates(expires_date);
-CREATE INDEX idx_ship_certificates_status ON ship_certificates(status);
+CREATE INDEX IF NOT EXISTS idx_ship_certificates_ship ON ship_certificates(ship_id);
+CREATE INDEX IF NOT EXISTS idx_ship_certificates_expires ON ship_certificates(expires_date);
+CREATE INDEX IF NOT EXISTS idx_ship_certificates_status ON ship_certificates(status);
 
 -- Add some default certificate types as a reference
 COMMENT ON COLUMN ship_certificates.certificate_type IS 'Types: SEC, SRC, SCC, ILC, IOPPC, ISSC, MLC, SMC, DOC, USCGCOC, CLC, CLBC, WRC, COFR, COC, ISPPC, COF, IEEC, IAPPC';

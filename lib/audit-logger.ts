@@ -1,6 +1,5 @@
-import { neon } from "@neondatabase/serverless"
+import { sql } from "./db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 interface AuditLogData {
   userId: string
@@ -10,6 +9,8 @@ interface AuditLogData {
   changes?: {
     before?: any
     after?: any
+    /** Serbest açıklama (ör. "X kaydından kopyalandı"). */
+    note?: string
   }
   ipAddress?: string
   userAgent?: string

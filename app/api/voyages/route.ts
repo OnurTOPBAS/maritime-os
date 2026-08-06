@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { requireAuth } from "@/lib/session"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -85,11 +84,11 @@ export async function POST(request: NextRequest) {
         loading_ports, discharge_ports
       ) VALUES (
         ${body.fixture_id}, ${body.voyage_number}, ${body.status || "planned"},
-        ${body.load_port}, ${body.load_country}, ${body.eta_load}, ${body.etb_load}, ${body.etc_load}, ${body.etd_load},
-        ${body.discharge_port}, ${body.discharge_country}, ${body.eta_discharge}, ${body.etb_discharge}, ${body.etc_discharge}, ${body.etd_discharge},
-        ${body.cargo_quantity}, ${body.cargo_unit || "MT"},
-        ${body.laytime_allowed_load}, ${body.laytime_used_load}, ${body.laytime_allowed_discharge}, ${body.laytime_used_discharge},
-        ${body.demurrage_amount}, ${body.despatch_amount}, ${body.notes},
+        ${body.load_port ?? null}, ${body.load_country ?? null}, ${body.eta_load ?? null}, ${body.etb_load ?? null}, ${body.etc_load ?? null}, ${body.etd_load ?? null},
+        ${body.discharge_port ?? null}, ${body.discharge_country ?? null}, ${body.eta_discharge ?? null}, ${body.etb_discharge ?? null}, ${body.etc_discharge ?? null}, ${body.etd_discharge ?? null},
+        ${body.cargo_quantity ?? null}, ${body.cargo_unit || "MT"},
+        ${body.laytime_allowed_load ?? null}, ${body.laytime_used_load ?? null}, ${body.laytime_allowed_discharge ?? null}, ${body.laytime_used_discharge ?? null},
+        ${body.demurrage_amount ?? null}, ${body.despatch_amount ?? null}, ${body.notes ?? null},
         ${JSON.stringify(body.loading_ports || [])}, ${JSON.stringify(body.discharge_ports || [])}
       )
       RETURNING *

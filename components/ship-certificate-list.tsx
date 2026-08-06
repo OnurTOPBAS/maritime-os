@@ -746,7 +746,7 @@ export function ShipCertificateList({ shipId }: ShipCertificateListProps) {
                   <TabsTrigger value="audit">Değişiklik Kaydı</TabsTrigger>
                 </TabsList>
                 <TabsContent value="versions">
-                  <CertificateVersionHistory certificateId={selectedCertificateForHistory.id} />
+                  <CertificateVersionHistory certificateId={selectedCertificateForHistory.id} shipId={shipId} />
                 </TabsContent>
                 <TabsContent value="audit">
                   <CertificateAuditLog certificateId={selectedCertificateForHistory.id} />

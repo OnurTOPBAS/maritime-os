@@ -1,24 +1,21 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireResourceAccess, resolveFleetBankCompany } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireAuth()
     const { id } = await params
 
-    // Get bank with access check
-    const banks = await sql`
-      SELECT fb.*
-      FROM fleet_banks fb
-      JOIN fleets f ON fb.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE fb.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveFleetBankCompany, id, "finance", "view", "Banka bulunamadı")
 
+    const banks = await sql`SELECT * FROM fleet_banks WHERE id = ${id}`
     if (banks.length === 0) {
-      return NextResponse.json({ error: "Bank not found" }, { status: 404 })
+      return NextResponse.json({ error: "Banka bulunamadı" }, { status: 404 })
     }
 
     // Get accounts for this bank
@@ -30,8 +27,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     return NextResponse.json({ ...banks[0], accounts })
   } catch (error) {
-    console.error("[v0] Get bank error:", error)
-    return NextResponse.json({ error: "Failed to fetch bank" }, { status: 500 })
+    return handleApiError(error, "Banka getirme")
   }
 }
 
@@ -41,19 +37,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     const body = await request.json()
 
-    // Check access
-    const banks = await sql`
-      SELECT fb.id
-      FROM fleet_banks fb
-      JOIN fleets f ON fb.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE fb.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (banks.length === 0) {
-      return NextResponse.json({ error: "Bank not found" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveFleetBankCompany, id, "finance", "edit", "Banka bulunamadı")
 
     const result = await sql`
       UPDATE fleet_banks
@@ -84,19 +70,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     const user = await requireAuth()
     const { id } = await params
 
-    // Check access
-    const banks = await sql`
-      SELECT fb.id
-      FROM fleet_banks fb
-      JOIN fleets f ON fb.fleet_id = f.id
-      JOIN companies c ON f.company_id = c.id
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE fb.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-    `
-
-    if (banks.length === 0) {
-      return NextResponse.json({ error: "Bank not found" }, { status: 404 })
-    }
+    // Erişim merkezi yetki katmanından doğrulanır: hem user_permissions
+    // hem company_team_members üyelikleri ve rol izinleri dikkate alınır.
+    await requireResourceAccess(user.id, resolveFleetBankCompany, id, "finance", "delete", "Banka bulunamadı")
 
     await sql`DELETE FROM fleet_banks WHERE id = ${id}`
 

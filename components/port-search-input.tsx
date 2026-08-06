@@ -37,7 +37,7 @@ export function PortSearchInput({ label, value, onChange, onPortSelect, placehol
   const [ports, setPorts] = useState<Port[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout>()
+  const searchTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   useEffect(() => {
     setSearchQuery(value)

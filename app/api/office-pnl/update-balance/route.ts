@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
-import { getSession } from "@/lib/session"
+import { sql } from "@/lib/db"
+import { requireAuth } from "@/lib/session"
+import { requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 /**
  * Updates bank balance based on income/expense transaction
@@ -10,10 +11,9 @@ const sql = neon(process.env.DATABASE_URL!)
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const user = await requireAuth()
+    // Bakiye güncellemesi paylaşılan mali veriyi değiştirir.
+    await requireSystemAdmin(user.id)
 
     const body = await request.json()
     const { recordId } = body
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
             balance_tl = ${currentBalanceTl + changeTl},
             closing_balance_usd = ${currentBalanceUsd + changeUsd},
             closing_balance_tl = ${currentBalanceTl + changeTl},
-            updated_by = ${session.id},
+            updated_by = ${user.id},
             updated_at = NOW()
         WHERE bank_id = ${bankId} AND report_month = ${reportMonth}
       `
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
           ${bankId}, ${bankName}, ${reportMonth},
           ${changeUsd}, ${changeTl},
           ${changeUsd}, ${changeTl},
-          ${session.id}
+          ${user.id}
         )
       `
     }
@@ -105,9 +105,8 @@ export async function POST(request: NextRequest) {
       changeTl
     })
 
-  } catch (error: any) {
-    console.error("Error updating bank balance:", error)
-    return NextResponse.json({ error: error.message || "Database error" }, { status: 500 })
+  } catch (error) {
+    return handleApiError(error, "Error updating bank balance:")
   }
 }
 

@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
 import { getCurrentUser } from "@/lib/session"
 import { checkPermission } from "@/lib/permissions"
+import { listAssignableRoles } from "@/lib/authz"
 import bcrypt from "bcryptjs"
+import { sql } from "@/lib/db"
 
-const sql = neon(process.env.DATABASE_URL!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -74,7 +74,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email already exists" }, { status: 400 })
     }
 
-    const passwordHash = await bcrypt.hash(password, 10)
+    // Rol, roles tablosundaki tanımlı slug'lardan biri olmalıdır.
+    const allowedRoles = (await listAssignableRoles()).map((r) => r.slug)
+    const assignedRole = role || "viewer"
+    if (!allowedRoles.includes(assignedRole)) {
+      return NextResponse.json(
+        { error: `Geçersiz rol. İzin verilenler: ${allowedRoles.join(", ")}` },
+        { status: 400 },
+      )
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12)
 
     const newUser = await sql`
       INSERT INTO users (name, email, password_hash)
@@ -84,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     await sql`
       INSERT INTO user_permissions (user_id, company_id, role)
-      VALUES (${newUser[0].id}, ${companyId}, ${role || "viewer"})
+      VALUES (${newUser[0].id}, ${companyId}, ${assignedRole})
     `
 
     return NextResponse.json(newUser[0], { status: 201 })

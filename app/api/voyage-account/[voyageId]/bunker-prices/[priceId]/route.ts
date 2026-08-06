@@ -1,13 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { neon } from "@neondatabase/serverless"
+import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireVoyageAccess } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
-const sql = neon(process.env.DATABASE_URL!)
-
-export async function PUT(request: NextRequest, { params }: { params: { voyageId: string; priceId: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; priceId: string }> },
+) {
   try {
-    await requireAuth()
-    const { priceId } = params
+    const user = await requireAuth()
+    const { voyageId, priceId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canEdit")
+
     const body = await request.json()
 
     const result = await sql`
@@ -18,27 +23,41 @@ export async function PUT(request: NextRequest, { params }: { params: { voyageId
           port = ${body.port || null},
           notes = ${body.notes || null},
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${priceId}
+      WHERE id = ${priceId} AND voyage_id = ${voyageId}
       RETURNING *
     `
 
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Yakıt fiyatı kaydı bulunamadı" }, { status: 404 })
+    }
+
     return NextResponse.json(result[0])
   } catch (error) {
-    console.error("[v0] Update bunker price error:", error)
-    return NextResponse.json({ error: "Failed to update bunker price" }, { status: 500 })
+    return handleApiError(error, "Yakıt fiyatı güncelleme")
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { voyageId: string; priceId: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ voyageId: string; priceId: string }> },
+) {
   try {
-    await requireAuth()
-    const { priceId } = params
+    const user = await requireAuth()
+    const { voyageId, priceId } = await params
+    await requireVoyageAccess(user.id, voyageId, "canDelete")
 
-    await sql`DELETE FROM voyage_bunker_prices WHERE id = ${priceId}`
+    const result = await sql`
+      DELETE FROM voyage_bunker_prices
+      WHERE id = ${priceId} AND voyage_id = ${voyageId}
+      RETURNING id
+    `
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: "Yakıt fiyatı kaydı bulunamadı" }, { status: 404 })
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("[v0] Delete bunker price error:", error)
-    return NextResponse.json({ error: "Failed to delete bunker price" }, { status: 500 })
+    return handleApiError(error, "Yakıt fiyatı silme")
   }
 }

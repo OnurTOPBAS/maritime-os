@@ -108,10 +108,10 @@ CREATE TABLE IF NOT EXISTS fixtures (
 );
 
 -- Create indexes for better performance
-CREATE INDEX idx_companies_owner ON companies(owner_id);
-CREATE INDEX idx_fleets_company ON fleets(company_id);
-CREATE INDEX idx_ships_fleet ON ships(fleet_id);
-CREATE INDEX idx_fixtures_ship ON fixtures(ship_id);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_sessions_user ON sessions(user_id);
-CREATE INDEX idx_accounts_user ON accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_companies_owner ON companies(owner_id);
+CREATE INDEX IF NOT EXISTS idx_fleets_company ON fleets(company_id);
+CREATE INDEX IF NOT EXISTS idx_ships_fleet ON ships(fleet_id);
+CREATE INDEX IF NOT EXISTS idx_fixtures_ship ON fixtures(ship_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
