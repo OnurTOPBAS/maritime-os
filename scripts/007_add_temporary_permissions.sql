@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS permission_change_history (
   changed_by UUID NOT NULL REFERENCES users(id),
   change_type VARCHAR(50) NOT NULL, -- grant, revoke, modify
   permission_id UUID REFERENCES permissions(id),
-  role_id UUID REFERENCES roles(id),
+  -- roles tablosu 035'te oluşuyor; yabancı anahtar orada eklenir.
+  role_id UUID,
   old_value JSONB,
   new_value JSONB,
   reason TEXT,

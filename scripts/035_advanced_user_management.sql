@@ -11,14 +11,40 @@ CREATE TABLE IF NOT EXISTS departments (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert default departments without company_id for system-wide departments
-INSERT INTO departments (name, description) VALUES
-  ('Operasyon', 'Gemi operasyonları ve sefer yönetimi'),
-  ('Finans', 'Muhasebe ve finansal işlemler'),
-  ('Teknik', 'Gemi bakım ve teknik işlemler'),
-  ('Ticaret', 'Navlun ve charter işlemleri'),
-  ('Yönetim', 'Üst düzey yönetim')
-ON CONFLICT DO NOTHING;
+-- Varsayılan departmanlar.
+-- Tablo daha eski bir migration'da (014) company_id NOT NULL olarak
+-- oluşturulmuş olabilir; o durumda her şirket için ayrı ayrı ekleriz.
+DO $$
+DECLARE
+  company_record RECORD;
+  company_id_required BOOLEAN;
+BEGIN
+  SELECT attnotnull INTO company_id_required
+  FROM pg_attribute
+  WHERE attrelid = 'departments'::regclass
+    AND attname = 'company_id'
+    AND NOT attisdropped;
+
+  IF company_id_required THEN
+    FOR company_record IN SELECT id FROM companies LOOP
+      INSERT INTO departments (company_id, name, description) VALUES
+        (company_record.id, 'Operasyon', 'Gemi operasyonları ve sefer yönetimi'),
+        (company_record.id, 'Finans', 'Muhasebe ve finansal işlemler'),
+        (company_record.id, 'Teknik', 'Gemi bakım ve teknik işlemler'),
+        (company_record.id, 'Ticaret', 'Navlun ve charter işlemleri'),
+        (company_record.id, 'Yönetim', 'Üst düzey yönetim')
+      ON CONFLICT DO NOTHING;
+    END LOOP;
+  ELSE
+    INSERT INTO departments (name, description) VALUES
+      ('Operasyon', 'Gemi operasyonları ve sefer yönetimi'),
+      ('Finans', 'Muhasebe ve finansal işlemler'),
+      ('Teknik', 'Gemi bakım ve teknik işlemler'),
+      ('Ticaret', 'Navlun ve charter işlemleri'),
+      ('Yönetim', 'Üst düzey yönetim')
+    ON CONFLICT DO NOTHING;
+  END IF;
+END $$;
 
 -- Custom roles table
 CREATE TABLE IF NOT EXISTS roles (
@@ -104,3 +130,17 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role_id);
 CREATE INDEX IF NOT EXISTS idx_user_activity_user ON user_activity_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_activity_created ON user_activity_log(created_at);
 CREATE INDEX IF NOT EXISTS idx_role_permissions_role ON role_permissions(role_id);
+
+-- 007'de oluşturulan permission_change_history.role_id için yabancı anahtar.
+-- (007 çalışırken roles tablosu henüz yoktu; burada ekleniyor.)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'permission_change_history')
+     AND NOT EXISTS (
+       SELECT 1 FROM pg_constraint WHERE conname = 'permission_change_history_role_id_fkey'
+     ) THEN
+    ALTER TABLE permission_change_history
+      ADD CONSTRAINT permission_change_history_role_id_fkey
+      FOREIGN KEY (role_id) REFERENCES roles(id);
+  END IF;
+END $$;
