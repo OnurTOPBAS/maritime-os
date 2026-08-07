@@ -4,37 +4,37 @@
 -- Fee Code tablosu - önceden tanımlı ve kullanıcı tanımlı fee türleri
 CREATE TABLE IF NOT EXISTS office_fee_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL UNIQUE,
   is_system BOOLEAN DEFAULT false, -- Sistem tarafından tanımlanan varsayılan türler
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Varsayılan fee code'ları ekle
+-- Varsayılan fee code'ları ekle (name benzersiz; tekrar çalıştırınca çoğalmaz)
 INSERT INTO office_fee_codes (name, is_system) VALUES
   ('Subscriptions', true),
   ('Gov. Taxes', true),
   ('Wages', true),
   ('Various', true)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- Payee Bank tablosu - ödeme yapılan bankalar
 CREATE TABLE IF NOT EXISTS office_payee_banks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(100) NOT NULL,
+  name VARCHAR(100) NOT NULL UNIQUE,
   is_system BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Varsayılan bankaları ekle
+-- Varsayılan bankaları ekle (name benzersiz; tekrar çalıştırınca çoğalmaz)
 INSERT INTO office_payee_banks (name, is_system) VALUES
   ('Cash', true),
   ('Ziraat', true),
   ('Vakıf Katılım', true),
   ('Garanti', true),
   ('İş Bankası', true)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name) DO NOTHING;
 
 -- Ana Office PnL tablosu
 CREATE TABLE IF NOT EXISTS office_pnl (
