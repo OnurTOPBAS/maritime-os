@@ -186,6 +186,12 @@ async function loadRolePermissions(roleSlug: string): Promise<PermissionSet> {
   return permissions
 }
 
+/** Bir rolün sahip olduğu "modül.eylem" izinlerinin listesi (arayüz için). */
+export async function getRolePermissions(roleSlug: string): Promise<string[]> {
+  const set = await loadRolePermissions(roleSlug)
+  return Array.from(set)
+}
+
 /** Gelen serbest metni veritabanındaki slug biçimine indirger. */
 function normalizeRole(value: unknown): string | null {
   if (typeof value !== "string" || value.trim() === "") return null

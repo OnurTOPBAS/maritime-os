@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Lock, Monitor, UserCog } from "lucide-react"
+import { Lock, Monitor, UserCog, ShieldCheck } from "lucide-react"
 import { SessionManager } from "@/components/session-manager"
 import { EnhancedProfileForm } from "@/components/enhanced-profile-form"
+import { MyPermissions } from "@/components/my-permissions"
 
 export const dynamic = "force-dynamic"
 
@@ -139,6 +140,10 @@ export default function ProfilePage() {
               <Lock className="mr-2 h-4 w-4" />
               Şifre Değiştir
             </TabsTrigger>
+            <TabsTrigger value="permissions">
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Yetkilerim
+            </TabsTrigger>
             <TabsTrigger value="sessions">
               <Monitor className="mr-2 h-4 w-4" />
               Oturumlar
@@ -225,6 +230,10 @@ export default function ProfilePage() {
                 </form>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="permissions">
+            <MyPermissions />
           </TabsContent>
 
           <TabsContent value="sessions">
