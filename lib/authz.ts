@@ -124,9 +124,33 @@ type PermissionSet = Set<string>
 
 const permissionCache = new Map<string, { expires: number; permissions: PermissionSet }>()
 
+// Süper yönetici bayrağı da kısa süreli önbelleğe alınır; aksi halde her
+// yetki kontrolü fazladan bir "users" sorgusu doğururdu.
+const superAdminCache = new Map<string, { expires: number; value: boolean }>()
+
 /** Rol/izin verisi değiştiğinde önbelleği boşaltır. */
 export function invalidatePermissionCache(): void {
   permissionCache.clear()
+  superAdminCache.clear()
+}
+
+/**
+ * Kullanıcı sistem geneli süper yönetici mi?
+ *
+ * Süper yönetici TÜM şirketleri görür ve yönetir; hiçbir şirkete üye olması
+ * gerekmez. Yetki kapıları bu bayrağı görürse şirket rollerini atlar.
+ */
+export async function isSuperAdmin(userId: string): Promise<boolean> {
+  if (!userId) return false
+
+  const cached = superAdminCache.get(userId)
+  if (cached && cached.expires > Date.now()) return cached.value
+
+  const rows = await sql`SELECT is_super_admin FROM users WHERE id = ${userId}`
+  const value = rows.length > 0 && rows[0].is_super_admin === true
+
+  superAdminCache.set(userId, { expires: Date.now() + PERMISSION_CACHE_TTL_MS, value })
+  return value
 }
 
 async function loadRolePermissions(roleSlug: string): Promise<PermissionSet> {
@@ -182,6 +206,9 @@ function normalizeRole(value: unknown): string | null {
  */
 export async function getUserRole(userId: string, companyId: string): Promise<UserRole | null> {
   if (!userId || !companyId) return null
+
+  // Süper yönetici her şirkette admin sayılır.
+  if (await isSuperAdmin(userId)) return "admin"
 
   const owner = await sql`
     SELECT 1 FROM companies WHERE id = ${companyId} AND owner_id = ${userId}
@@ -318,6 +345,8 @@ export async function requireCompanyAccess(
 export async function requireSystemAdmin(userId: string): Promise<void> {
   if (!userId) throw new ForbiddenError()
 
+  if (await isSuperAdmin(userId)) return
+
   const result = await sql`
     SELECT 1 FROM companies WHERE owner_id = ${userId}
     UNION ALL
@@ -336,6 +365,8 @@ export async function requireSystemAdmin(userId: string): Promise<void> {
 
 /** Sadece şirket sahibinin yapabileceği işlemler (şirketi silmek gibi). */
 export async function requireCompanyOwner(userId: string, companyId: string): Promise<void> {
+  if (await isSuperAdmin(userId)) return
+
   const owner = await sql`
     SELECT 1 FROM companies WHERE id = ${companyId} AND owner_id = ${userId}
   `
@@ -519,6 +550,12 @@ export async function requireCalculationOwner(userId: string, calculationId: str
 
 /** Kullanıcının erişebildiği şirket kimlikleri (liste sorgularını filtrelemek için). */
 export async function getAccessibleCompanyIds(userId: string): Promise<string[]> {
+  // Süper yönetici tüm şirketleri görür.
+  if (await isSuperAdmin(userId)) {
+    const all = await sql`SELECT id AS company_id FROM companies`
+    return all.map((r: any) => r.company_id).filter(Boolean)
+  }
+
   const rows = await sql`
     SELECT id AS company_id FROM companies WHERE owner_id = ${userId}
     UNION

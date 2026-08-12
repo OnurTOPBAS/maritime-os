@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session"
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { CompanyDetailView } from "@/components/company-detail-view"
+import { isSuperAdmin } from "@/lib/authz"
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -15,12 +16,15 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
     redirect("/auth/signin")
   }
 
-  const companies = await sql`
-    SELECT c.* 
-    FROM companies c
-    LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-    WHERE c.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
-  `
+  const superAdmin = await isSuperAdmin(user.id)
+  const companies = superAdmin
+    ? await sql`SELECT c.* FROM companies c WHERE c.id = ${id}`
+    : await sql`
+        SELECT c.*
+        FROM companies c
+        LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
+        WHERE c.id = ${id} AND (c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL)
+      `
 
   if (companies.length === 0) {
     redirect("/dashboard")

@@ -46,6 +46,12 @@ export async function requirePermission(userId: string, companyId: string, actio
 /** Kullanıcının erişebildiği şirketler (sahip olduğu + üye olduğu). */
 export async function getUserCompanies(userId: string) {
   try {
+    // Süper yönetici tüm şirketleri (admin olarak) görür.
+    const [u] = await sql`SELECT is_super_admin FROM users WHERE id = ${userId}`
+    if (u?.is_super_admin === true) {
+      return await sql`SELECT c.*, 'admin' AS role FROM companies c ORDER BY c.name`
+    }
+
     return await sql`
       SELECT DISTINCT c.*, COALESCE(up.role, ctm.role,
                CASE WHEN c.owner_id = ${userId} THEN 'admin' END) AS role

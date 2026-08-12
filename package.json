@@ -8,7 +8,8 @@
     "test:watch": "vitest",
     "test:qa": "node scripts/qa/run-all.mjs",
     "test:all": "vitest run && node scripts/qa/run-all.mjs",
-    "migrate": "node scripts/migrate.mjs"
+    "migrate": "node scripts/migrate.mjs",
+    "superadmin": "node scripts/superadmin.mjs"
   },
   "dependencies": {
     "@auth/core": "latest",

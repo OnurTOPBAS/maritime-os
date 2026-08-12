@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { isSuperAdmin } from "@/lib/authz"
 
 export async function GET() {
   try {
     const user = await requireAuth()
 
-    const companies = await sql`
-      SELECT DISTINCT c.* FROM companies c
-      LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-      WHERE c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL
-      ORDER BY c.created_at DESC
-    `
+    // Süper yönetici tüm şirketleri görür.
+    const companies = (await isSuperAdmin(user.id))
+      ? await sql`SELECT c.* FROM companies c ORDER BY c.created_at DESC`
+      : await sql`
+          SELECT DISTINCT c.* FROM companies c
+          LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
+          WHERE c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL
+          ORDER BY c.created_at DESC
+        `
 
     return NextResponse.json(companies)
   } catch (error) {
