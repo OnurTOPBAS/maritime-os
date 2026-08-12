@@ -323,7 +323,7 @@ export function InvoiceList() {
     switch (column.key) {
       case "invoiceNumber":
         return (
-          <div className={column.width}>
+          <div className="w-full min-w-0">
             <Link
               href={`/dashboard/invoices/${invoice.id}`}
               className="font-semibold text-foreground hover:text-primary transition-colors block truncate"
@@ -335,34 +335,34 @@ export function InvoiceList() {
         )
       case "invoiceType":
         return (
-          <div className={`${column.width} flex items-center text-sm`}>
+          <div className="w-full flex items-center text-sm truncate">
             {invoice.invoice_type ? getInvoiceTypeText(invoice.invoice_type) : "-"}
           </div>
         )
       case "shipName":
-        return <div className={`${column.width} flex items-center text-sm truncate`}>{invoice.ship_name || "-"}</div>
+        return <div className="w-full flex items-center text-sm truncate">{invoice.ship_name || "-"}</div>
       case "charterer":
-        return <div className={`${column.width} flex items-center text-sm truncate`}>{invoice.charterer || "-"}</div>
+        return <div className="w-full flex items-center text-sm truncate">{invoice.charterer || "-"}</div>
       case "type":
         return (
-          <div className={`${column.width} flex items-center`}>
+          <div className="w-full flex items-center">
             <Badge variant={invoice.type === "income" ? "default" : "secondary"} className="font-normal">
               {getTypeText(invoice.type)}
             </Badge>
           </div>
         )
       case "status":
-        return <div className={`${column.width} flex items-center`}>{getStatusBadge(invoice.status)}</div>
+        return <div className="w-full flex items-center">{getStatusBadge(invoice.status)}</div>
       case "commissionStatus":
         return (
-          <div className={`${column.width} flex items-center`}>
+          <div className="w-full flex items-center">
             {invoice.broker_commission_status ? getCommissionStatusBadge(invoice.broker_commission_status) : "-"}
           </div>
         )
       case "amount":
         return (
           <div
-            className={`${column.width} flex items-center ${column.align === "right" ? "justify-end" : ""} font-semibold`}
+            className={`w-full flex items-center ${column.align === "right" ? "justify-end" : ""} font-semibold whitespace-nowrap`}
           >
             {Number(invoice.amount).toLocaleString()} {invoice.currency}
           </div>
@@ -370,14 +370,14 @@ export function InvoiceList() {
       case "commission":
         return (
           <div
-            className={`${column.width} flex items-center ${column.align === "right" ? "justify-end" : ""} text-sm text-muted-foreground`}
+            className={`w-full flex items-center ${column.align === "right" ? "justify-end" : ""} text-sm text-muted-foreground whitespace-nowrap`}
           >
             {invoice.broker_commission ? `$${Number(invoice.broker_commission).toLocaleString()}` : "-"}
           </div>
         )
       case "date":
         return (
-          <div className={`${column.width} flex items-center text-sm`}>
+          <div className="w-full flex items-center text-sm whitespace-nowrap">
             {new Date(invoice.invoice_date).toLocaleDateString("tr-TR", {
               day: "2-digit",
               month: "short",
@@ -429,11 +429,26 @@ export function InvoiceList() {
     })
   }
 
-  const getColumnStyle = (column: ColumnConfig) => {
-    if (columnWidths[column.key]) {
-      return { width: `${columnWidths[column.key]}px`, minWidth: "100px" }
+  // Kolonun varsayılan genişliğini Tailwind sınıfından (ör. "w-[130px]" veya
+  // "flex-1 min-w-[180px]") çözüp somut bir flex ölçüsüne çevirir.
+  const getDefaultColumnStyle = (column: ColumnConfig): React.CSSProperties => {
+    if (column.width.includes("flex-1")) {
+      const m = column.width.match(/min-w-\[(\d+)px\]/)
+      const min = m ? Number(m[1]) : 160
+      return { flex: `1 1 ${min}px`, minWidth: min }
     }
-    return { minWidth: "100px" }
+    const m = column.width.match(/w-\[(\d+)px\]/)
+    const w = m ? Number(m[1]) : 130
+    return { width: w, flexShrink: 0 }
+  }
+
+  // Başlık ve satırlar aynı ölçüyü kullanır; böylece kolonlar daima hizalı
+  // kalır. Kullanıcı bir kolonu elle boyutlandırdıysa o piksel değeri geçerli.
+  const getColumnStyle = (column: ColumnConfig): React.CSSProperties => {
+    if (columnWidths[column.key]) {
+      return { width: `${columnWidths[column.key]}px`, flexShrink: 0 }
+    }
+    return getDefaultColumnStyle(column)
   }
 
   if (loading) {
@@ -592,22 +607,22 @@ export function InvoiceList() {
           </Select>
 
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[130px] h-10">
+            <SelectTrigger className="w-[150px] h-10">
               <SelectValue placeholder="Tip" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tümü</SelectItem>
+              <SelectItem value="all">Tüm Tipler</SelectItem>
               <SelectItem value="income">Gelir</SelectItem>
               <SelectItem value="expense">Gider</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={filterInvoiceType} onValueChange={setFilterInvoiceType}>
-            <SelectTrigger className="w-[150px] h-10">
+            <SelectTrigger className="w-[160px] h-10">
               <SelectValue placeholder="Fatura Türü" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tümü</SelectItem>
+              <SelectItem value="all">Tüm Türler</SelectItem>
               <SelectItem value="freight">Navlun</SelectItem>
               <SelectItem value="awrp">AWRP</SelectItem>
               <SelectItem value="demurrage">Demuraj</SelectItem>
@@ -616,11 +631,11 @@ export function InvoiceList() {
           </Select>
 
           <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger className="w-[150px] h-10">
+            <SelectTrigger className="w-[160px] h-10">
               <SelectValue placeholder="Durum" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tümü</SelectItem>
+              <SelectItem value="all">Tüm Durumlar</SelectItem>
               <SelectItem value="pending">Beklemede</SelectItem>
               <SelectItem value="paid">Ödendi</SelectItem>
               <SelectItem value="overdue">Vadesi Geçti</SelectItem>
@@ -628,11 +643,11 @@ export function InvoiceList() {
           </Select>
 
           <Select value={filterCommissionStatus} onValueChange={setFilterCommissionStatus}>
-            <SelectTrigger className="w-[170px] h-10">
+            <SelectTrigger className="w-[190px] h-10">
               <SelectValue placeholder="Komisyon Durumu" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tümü</SelectItem>
+              <SelectItem value="all">Tüm Komisyonlar</SelectItem>
               <SelectItem value="pending">Beklemede</SelectItem>
               <SelectItem value="received">Tahsil Edildi</SelectItem>
               <SelectItem value="overdue">Gecikmiş</SelectItem>
@@ -730,7 +745,7 @@ export function InvoiceList() {
                 </div>
 
                 {visibleColumns.map((column) => (
-                  <div key={column.key} style={getColumnStyle(column)}>
+                  <div key={column.key} className="overflow-hidden" style={getColumnStyle(column)}>
                     {renderCell(column, invoice)}
                   </div>
                 ))}
