@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS psc_checklist_items (
   regulatory_reference VARCHAR(255),
   priority VARCHAR(20) DEFAULT 'medium', -- 'high', 'medium', 'low'
   sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  -- (category, item_name) benzersiz: seed tekrar çalıştırılınca çoğalmaz.
+  CONSTRAINT psc_checklist_items_category_item_key UNIQUE (category, item_name)
 );
 
 -- PSC Inspection Records
@@ -146,4 +148,4 @@ INSERT INTO psc_checklist_items (category, item_name, description, regulatory_re
 ('Structural', 'Deck Machinery', 'Windlass, mooring equipment', 'SOLAS', 'medium', 52),
 ('Structural', 'Cargo Holds', 'Condition of holds and hatch covers', 'SOLAS', 'medium', 53)
 
-ON CONFLICT DO NOTHING;
+ON CONFLICT (category, item_name) DO NOTHING;

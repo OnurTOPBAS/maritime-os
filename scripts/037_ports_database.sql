@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS ports (
   port_name VARCHAR(255) NOT NULL,
   country_iso VARCHAR(2),
   country_name VARCHAR(255),
-  unlocode VARCHAR(5),
+  unlocode VARCHAR(5) UNIQUE,
   port_type VARCHAR(50),
   lat DECIMAL(10, 8),
   lon DECIMAL(11, 8),
@@ -75,4 +75,5 @@ INSERT INTO ports (port_name, country_iso, country_name, unlocode, port_type, la
 ('NEW YORK', 'US', 'United States', 'USNYC', 'Port', 40.7128, -74.0060, 'North America', 'Atlantic Ocean'),
 ('LOS ANGELES', 'US', 'United States', 'USLAX', 'Port', 33.7701, -118.1937, 'North America', 'Pacific Ocean'),
 ('HOUSTON', 'US', 'United States', 'USHOU', 'Port', 29.7604, -95.3698, 'North America', 'Gulf of Mexico'),
-('SANTOS', 'BR', 'Brazil', 'BRSSZ', 'Port', -23.9608, -46.3336, 'South America', 'Atlantic Ocean');
+('SANTOS', 'BR', 'Brazil', 'BRSSZ', 'Port', -23.9608, -46.3336, 'South America', 'Atlantic Ocean')
+ON CONFLICT (unlocode) DO NOTHING;
