@@ -31,9 +31,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ad zorunludur" }, { status: 400 })
     }
 
+    // Aynı ada sahip banka varsa yenisini oluşturmayıp mevcudu döneriz.
+    // (office_payee_banks.name UNIQUE — 056 numaralı migration.)
     const result = await sql`
       INSERT INTO office_payee_banks (name, is_system)
       VALUES (${name.trim()}, false)
+      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
       RETURNING *
     `
 

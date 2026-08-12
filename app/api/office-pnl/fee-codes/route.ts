@@ -32,9 +32,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ad zorunludur" }, { status: 400 })
     }
 
+    // Aynı ada sahip kod zaten varsa yenisini oluşturmayıp mevcudu döneriz;
+    // böylece liste ve filtreler tekrar tekrar aynı kodu göstermez.
+    // (office_fee_codes.name UNIQUE — 056 numaralı migration.)
     const result = await sql`
       INSERT INTO office_fee_codes (name, is_system)
       VALUES (${name.trim()}, false)
+      ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
       RETURNING *
     `
 
