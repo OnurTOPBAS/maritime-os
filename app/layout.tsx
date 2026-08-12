@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
           <Providers>{children}</Providers>
         </ThemeProvider>
       </body>

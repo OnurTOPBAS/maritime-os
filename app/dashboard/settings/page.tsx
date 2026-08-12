@@ -33,7 +33,7 @@ export default function SettingsPage() {
   })
 
   const [userPreferences, setUserPreferences] = useState({
-    theme: "system",
+    theme: "light",
     language: "tr",
     timezone: "Europe/Istanbul",
     date_format: "DD/MM/YYYY",
@@ -58,10 +58,11 @@ export default function SettingsPage() {
         const prefsRes = await fetch("/api/user-preferences")
         if (prefsRes.ok) {
           const prefs = await prefsRes.json()
-          setUserPreferences(prefs)
-          if (prefs.theme) {
-            setTheme(prefs.theme)
-          }
+          // Eski kayıtlarda tema "system" olabilir; sistem karanlık temada
+          // olunca sürpriz şekilde koyuya geçiyordu. Açık temaya sabitliyoruz.
+          const normalizedTheme = !prefs.theme || prefs.theme === "system" ? "light" : prefs.theme
+          setUserPreferences({ ...prefs, theme: normalizedTheme })
+          setTheme(normalizedTheme)
         }
       } catch (error) {
         console.error("Failed to fetch user:", error)
@@ -290,7 +291,6 @@ export default function SettingsPage() {
                     <SelectContent>
                       <SelectItem value="light">Açık</SelectItem>
                       <SelectItem value="dark">Koyu</SelectItem>
-                      <SelectItem value="system">Sistem</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-sm text-muted-foreground">Tema değişikliği anında uygulanır</p>
