@@ -252,7 +252,7 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
       } catch {
         // bakiye alınamazsa tablo boş kalır, gider listesi yine iner
       }
-      exportOfficePnlToExcel(filteredRecords, Array.isArray(balances) ? balances : [], month)
+      await exportOfficePnlToExcel(filteredRecords, Array.isArray(balances) ? balances : [], month)
     } catch (e) {
       console.error("Şablon export hatası:", e)
     }
