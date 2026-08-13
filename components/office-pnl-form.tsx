@@ -63,6 +63,7 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
     description: "",
     invoiceDate: new Date().toISOString().split("T")[0],
     invoiceNo: "",
+    currency: "usd", // "usd" = direkt dolar, "tl" = TL tutar + kur -> USD
     priceTl: "",
     priceUsd: "",
     currencyRate: "",
@@ -99,6 +100,7 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
       description: record.description || "",
       invoiceDate: formatDate(record.invoice_date) || new Date().toISOString().split("T")[0],
       invoiceNo: record.invoice_no || "",
+      currency: record.price_tl != null && Number(record.price_tl) > 0 ? "tl" : "usd",
       priceTl: record.price_tl != null ? String(record.price_tl) : "",
       priceUsd: record.price_usd != null ? String(record.price_usd) : "",
       currencyRate: record.currency_rate != null ? String(record.currency_rate) : "",
@@ -467,33 +469,31 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
           <CardTitle>Tutar Bilgileri</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="priceTl">Tutar (TL)</Label>
-              <Input
-                id="priceTl"
-                type="number"
-                step="0.01"
-                value={formData.priceTl}
-                onChange={(e) => setFormData((prev) => ({ ...prev, priceTl: e.target.value }))}
-                placeholder="0.00"
-              />
-            </div>
+          <div className="space-y-2 max-w-xs">
+            <Label htmlFor="currency">Para Birimi</Label>
+            <Select
+              value={formData.currency}
+              onValueChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  currency: value,
+                  // USD'ye dönünce TL/kur temizlensin (kalıntı olmasın)
+                  ...(value === "usd" ? { priceTl: "", currencyRate: "" } : {}),
+                }))
+              }
+            >
+              <SelectTrigger id="currency">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="usd">USD (direkt dolar)</SelectItem>
+                <SelectItem value="tl">TL (kur ile USD'ye çevrilir)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="currencyRate">USD/TL Kuru</Label>
-              <Input
-                id="currencyRate"
-                type="number"
-                step="0.0001"
-                value={formData.currencyRate}
-                onChange={(e) => setFormData((prev) => ({ ...prev, currencyRate: e.target.value }))}
-                placeholder="Örn: 32.50"
-              />
-              <p className="text-xs text-muted-foreground">TL tutarını USD'ye çevirmek için</p>
-            </div>
-
-            <div className="space-y-2">
+          {formData.currency === "usd" ? (
+            <div className="space-y-2 max-w-xs">
               <Label htmlFor="priceUsd">Tutar (USD)</Label>
               <Input
                 id="priceUsd"
@@ -503,9 +503,48 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
                 onChange={(e) => setFormData((prev) => ({ ...prev, priceUsd: e.target.value }))}
                 placeholder="0.00"
               />
-              <p className="text-xs text-muted-foreground">TL ve kur girilirse otomatik hesaplanır</p>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="priceTl">Tutar (TL)</Label>
+                <Input
+                  id="priceTl"
+                  type="number"
+                  step="0.01"
+                  value={formData.priceTl}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, priceTl: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="currencyRate">USD/TL Kuru</Label>
+                <Input
+                  id="currencyRate"
+                  type="number"
+                  step="0.0001"
+                  value={formData.currencyRate}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, currencyRate: e.target.value }))}
+                  placeholder="Örn: 32.50"
+                />
+                <p className="text-xs text-muted-foreground">TL tutarını USD'ye çevirmek için</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priceUsd">Tutar (USD)</Label>
+                <Input
+                  id="priceUsd"
+                  type="number"
+                  step="0.01"
+                  value={formData.priceUsd}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, priceUsd: e.target.value }))}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">TL ve kur girilirse otomatik hesaplanır</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

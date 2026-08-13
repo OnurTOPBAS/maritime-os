@@ -158,6 +158,10 @@ export async function exportOfficePnlToExcel(
 
   const lastExpenseRow = writeExpenseTable(main, 2, sorted)
 
+  // Başlık satırına filtre (Excel'de kolon açılır filtreleri). Toplam satırı
+  // hariç, başlık + veri aralığını kapsar.
+  main.autoFilter = { from: { row: 2, column: 1 }, to: { row: Math.max(2, lastExpenseRow - 1), column: 12 } }
+
   /* ---------- Banka bakiye tablosu ---------- */
   const bankTitleRow = lastExpenseRow + 2
   main.mergeCells(bankTitleRow, 1, bankTitleRow, 4)
@@ -218,7 +222,8 @@ export async function exportOfficePnlToExcel(
     t.value = `Toplam Price TL - Fee Code: ${name} için ayrıntılar`
     t.font = { bold: true, size: 12 }
     t.alignment = { vertical: "middle" }
-    writeExpenseTable(ws, 2, rows)
+    const detailTotal = writeExpenseTable(ws, 2, rows)
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: Math.max(2, detailTotal - 1), column: 12 } }
   }
 
   /* ---------- İndir ---------- */
