@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { OfficePnlForm } from "@/components/office-pnl-form"
+import { exportOfficePnlToExcel } from "@/lib/office-pnl-export"
 import {
   Plus,
   Pencil,
@@ -240,6 +241,23 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
 
   const netBalance = totalIncome - totalExpense
 
+  const handleExportTemplate = async () => {
+    try {
+      const month = reportMonth || new Date().toISOString().slice(0, 7)
+      // O ayın banka bakiyelerini çek (şablonun banka tablosu için).
+      let balances: any[] = []
+      try {
+        const res = await fetch(`/api/office-pnl/bank-balances?reportMonth=${month}`)
+        if (res.ok) balances = await res.json()
+      } catch {
+        // bakiye alınamazsa tablo boş kalır, gider listesi yine iner
+      }
+      exportOfficePnlToExcel(filteredRecords, Array.isArray(balances) ? balances : [], month)
+    } catch (e) {
+      console.error("Şablon export hatası:", e)
+    }
+  }
+
   const handleExport = () => {
     // Basit CSV export
     const headers = ["Tarih", "Payee", "Fee Code", "Açıklama", "TL", "USD", "Durum", "Tip"]
@@ -287,7 +305,11 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} disabled={records.length === 0} className="gap-2 bg-transparent">
             <Download className="h-4 w-4" />
-            Dışa Aktar
+            CSV
+          </Button>
+          <Button onClick={handleExportTemplate} disabled={filteredRecords.length === 0} className="gap-2">
+            <Download className="h-4 w-4" />
+            Excel (Şablon)
           </Button>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

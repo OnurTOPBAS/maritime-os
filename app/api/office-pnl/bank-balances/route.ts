@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     await requireSystemAdmin(user.id)
 
     const body = await request.json()
-    const { bankId, bankName, reportMonth, balanceTl, balanceUsd, currencyRate, notes } = body
+    const { bankId, bankName, reportMonth, balanceTl, balanceUsd, balanceAed, currencyRate, notes } = body
 
     if (!reportMonth) {
       return NextResponse.json({ error: "reportMonth is required" }, { status: 400 })
@@ -63,8 +63,9 @@ export async function POST(request: NextRequest) {
       // Update existing balance
       const result = await sql`
         UPDATE office_bank_balances
-        SET closing_balance_tl = ${balanceTl || 0}, 
+        SET closing_balance_tl = ${balanceTl || 0},
             closing_balance_usd = ${balanceUsd || 0},
+            closing_balance_aed = ${balanceAed || 0},
             balance_tl = ${balanceTl || 0},
             balance_usd = ${balanceUsd || 0},
             currency_rate = ${currencyRate || null},
@@ -79,13 +80,13 @@ export async function POST(request: NextRequest) {
 
     const result = await sql`
       INSERT INTO office_bank_balances (
-        bank_id, bank_name, report_month, 
-        closing_balance_tl, closing_balance_usd,
+        bank_id, bank_name, report_month,
+        closing_balance_tl, closing_balance_usd, closing_balance_aed,
         balance_tl, balance_usd,
         currency_rate, notes, created_by
       ) VALUES (
-        ${bankId}, ${bankName || null}, ${reportMonth}, 
-        ${balanceTl || 0}, ${balanceUsd || 0},
+        ${bankId}, ${bankName || null}, ${reportMonth},
+        ${balanceTl || 0}, ${balanceUsd || 0}, ${balanceAed || 0},
         ${balanceTl || 0}, ${balanceUsd || 0},
         ${currencyRate || null}, ${notes || null}, ${user.id}
       )

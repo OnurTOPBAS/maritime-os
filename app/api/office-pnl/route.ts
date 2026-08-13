@@ -98,6 +98,8 @@ export async function POST(request: NextRequest) {
       paymentStatus,
       payeeBankId,
       payeeBankCustom,
+      paymentMethod,
+      dateType,
       paymentDate,
       type,
       notes,
@@ -122,14 +124,16 @@ export async function POST(request: NextRequest) {
       INSERT INTO office_pnl (
         fee_code_id, fee_code_custom, company_id, company_name, payee, description,
         invoice_date, invoice_no, price_tl, price_usd, currency_rate, payment_status,
-        payee_bank_id, payee_bank_custom, payment_date, type, notes, report_month, created_by
+        payee_bank_id, payee_bank_custom, payment_method, date_type, payment_date,
+        type, notes, report_month, created_by
       ) VALUES (
         ${feeCodeId || null}, ${feeCodeCustom || null}, ${companyId || null},
         ${companyName || null}, ${payee}, ${description || null},
         ${invoiceDate || null}, ${invoiceNo || null}, ${priceTl || null},
         ${calculatedPriceUsd || null}, ${currencyRate || null},
         ${paymentStatus || "unpaid"}, ${payeeBankId || null}, ${payeeBankCustom || null},
-        ${paymentDate || null}, ${type || "expense"}, ${notes || null},
+        ${paymentMethod || null}, ${dateType || null}, ${paymentDate || null},
+        ${type || "expense"}, ${notes || null},
         ${reportMonth || null}, ${user.id}
       )
       RETURNING *

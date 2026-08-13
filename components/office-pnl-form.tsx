@@ -69,6 +69,8 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
     paymentStatus: "unpaid",
     payeeBankId: "",
     payeeBankCustom: "",
+    paymentMethod: "",
+    dateType: "",
     paymentDate: "",
     type: "expense",
     notes: "",
@@ -103,6 +105,8 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
       paymentStatus: record.payment_status || "unpaid",
       payeeBankId: record.payee_bank_id || "",
       payeeBankCustom: record.payee_bank_custom || "",
+      paymentMethod: record.payment_method || "",
+      dateType: record.date_type || "",
       paymentDate: formatDate(record.payment_date) || "",
       type: record.type || "expense",
       notes: record.notes || "",
@@ -239,6 +243,8 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
         paymentStatus: formData.paymentStatus,
         payeeBankId: formData.payeeBankId || null,
         payeeBankCustom: formData.payeeBankCustom || null,
+        paymentMethod: formData.paymentMethod || null,
+        dateType: formData.dateType || null,
         paymentDate: formData.paymentDate || null,
         type: formData.type,
         notes: formData.notes || null,
@@ -428,6 +434,29 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
                 onChange={(e) => setFormData((prev) => ({ ...prev, invoiceNo: e.target.value }))}
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dateType">Tarih Tipi</Label>
+              <Select
+                value={formData.dateType || "none"}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, dateType: value === "none" ? "" : value }))
+                }
+              >
+                <SelectTrigger id="dateType">
+                  <SelectValue placeholder="Seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  <SelectItem value="reel">Reel</SelectItem>
+                  <SelectItem value="tahmini">Tahmini</SelectItem>
+                  <SelectItem value="na">N/A</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Tarih yerine rapora yazılır (Reel / Tahmini / N/A).
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -553,6 +582,29 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
                 </Button>
               </div>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="paymentMethod">Ödeme Yöntemi</Label>
+            <Select
+              value={formData.paymentMethod || "none"}
+              onValueChange={(value) =>
+                setFormData((prev) => ({ ...prev, paymentMethod: value === "none" ? "" : value }))
+              }
+            >
+              <SelectTrigger id="paymentMethod">
+                <SelectValue placeholder="Seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                <SelectItem value="bank">Banka</SelectItem>
+                <SelectItem value="cash">Nakit</SelectItem>
+                <SelectItem value="kk">Kredi Kartı (KK)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Ödemenin nasıl yapıldığı — banka hesabından ayrı.
+            </p>
           </div>
 
           <div className="space-y-2">

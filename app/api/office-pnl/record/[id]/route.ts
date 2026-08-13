@@ -77,7 +77,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const {
       feeCodeId, feeCodeCustom, companyId, companyName, payee, description,
       invoiceDate, invoiceNo, priceTl, priceUsd, currencyRate, paymentStatus,
-      payeeBankId, payeeBankCustom, paymentDate, type, notes, reportMonth,
+      payeeBankId, payeeBankCustom, paymentMethod, dateType, paymentDate,
+      type, notes, reportMonth,
     } = body
 
     // Kayıt başka bir şirkete taşınıyorsa hedef şirkette de yetki aranır;
@@ -107,6 +108,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         payment_status = ${paymentStatus || "unpaid"},
         payee_bank_id = ${payeeBankId || null},
         payee_bank_custom = ${payeeBankCustom || null},
+        payment_method = ${paymentMethod || null},
+        date_type = ${dateType || null},
         payment_date = ${paymentDate || null},
         type = ${type || "expense"},
         notes = ${notes || null},

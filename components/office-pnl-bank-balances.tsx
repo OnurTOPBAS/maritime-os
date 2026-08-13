@@ -29,6 +29,7 @@ interface BankBalance {
   report_month: string
   balance_tl: number
   balance_usd: number
+  closing_balance_aed?: number
 }
 
 interface PayeeBank {
@@ -50,6 +51,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
     bankId: "",
     balanceTl: "",
     balanceUsd: "",
+    balanceAed: "",
   })
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
           reportMonth,
           balanceTl: parseFloat(formData.balanceTl) || 0,
           balanceUsd: parseFloat(formData.balanceUsd) || 0,
+          balanceAed: parseFloat(formData.balanceAed) || 0,
         }),
       })
 
@@ -105,7 +108,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
         toast.success("Bakiye kaydedildi")
         setIsDialogOpen(false)
         setEditingBank(null)
-        setFormData({ bankId: "", balanceTl: "", balanceUsd: "" })
+        setFormData({ bankId: "", balanceTl: "", balanceUsd: "", balanceAed: "" })
         fetchData()
       } else {
         let errorMessage = "Kayıt başarısız"
@@ -127,13 +130,14 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
       bankId: balance.bank_id,
       balanceTl: String(balance.balance_tl || 0),
       balanceUsd: String(balance.balance_usd || 0),
+      balanceAed: String(balance.closing_balance_aed || 0),
     })
     setEditingBank(balance.bank_id)
     setIsDialogOpen(true)
   }
 
   const handleAddNew = () => {
-    setFormData({ bankId: "", balanceTl: "", balanceUsd: "" })
+    setFormData({ bankId: "", balanceTl: "", balanceUsd: "", balanceAed: "" })
     setEditingBank(null)
     setIsDialogOpen(true)
   }
@@ -199,7 +203,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>TL Bakiye</Label>
                     <Input
@@ -220,6 +224,18 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                       value={formData.balanceUsd}
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, balanceUsd: e.target.value }))
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>AED Bakiye</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.balanceAed}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, balanceAed: e.target.value }))
                       }
                       placeholder="0.00"
                     />
