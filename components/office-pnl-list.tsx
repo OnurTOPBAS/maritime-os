@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { OfficePnlForm } from "@/components/office-pnl-form"
 import { exportOfficePnlToExcel } from "@/lib/office-pnl-export"
+import { OfficePnlImportDialog } from "@/components/office-pnl-import-dialog"
 import {
   Plus,
   Pencil,
@@ -311,6 +312,10 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
             <Download className="h-4 w-4" />
             Excel (Şablon)
           </Button>
+          <OfficePnlImportDialog
+            reportMonth={reportMonth || new Date().toISOString().slice(0, 7)}
+            onImported={fetchRecords}
+          />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => setEditingRecord(null)} className="gap-2">
