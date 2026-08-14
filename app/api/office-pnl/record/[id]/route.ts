@@ -3,7 +3,6 @@ import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 import { ForbiddenError, NotFoundError, canAccessCompany, type Permission } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
-import { updateBankBalance } from "@/lib/update-bank-balance"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -124,9 +123,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Kayıt bulunamadı" }, { status: 404 })
     }
 
-    if (paymentStatus === "paid" && payeeBankId && reportMonth) {
-      await updateBankBalance(id, user.id)
-    }
+    // Banka bakiyeleri okurken hesaplanıyor (bkz. bank-balances GET).
 
     return NextResponse.json(result[0])
   } catch (error) {

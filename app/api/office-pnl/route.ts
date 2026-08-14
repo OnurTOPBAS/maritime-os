@@ -3,7 +3,6 @@ import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 import { getAccessibleCompanyIds, requireCompanyAccess } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
-import { updateBankBalance } from "@/lib/update-bank-balance"
 
 export async function GET(request: NextRequest) {
   try {
@@ -141,9 +140,8 @@ export async function POST(request: NextRequest) {
 
     const newRecord = result[0]
 
-    if (paymentStatus === "paid" && payeeBankId && reportMonth) {
-      await updateBankBalance(newRecord.id, user.id)
-    }
+    // Not: Banka bakiyeleri artık okurken hesaplanıyor (bkz. bank-balances GET);
+    // burada ayrıca güncelleme yapılmaz.
 
     return NextResponse.json(newRecord, { status: 201 })
   } catch (error) {

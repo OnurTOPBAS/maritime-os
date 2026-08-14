@@ -29,6 +29,13 @@ interface BankBalance {
   report_month: string
   balance_tl: number
   balance_usd: number
+  opening_balance_tl?: number
+  opening_balance_usd?: number
+  opening_balance_aed?: number
+  net_tl?: number
+  net_usd?: number
+  closing_balance_tl?: number
+  closing_balance_usd?: number
   closing_balance_aed?: number
 }
 
@@ -97,9 +104,9 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
           bankId: formData.bankId,
           bankName: selectedBank?.name || null,
           reportMonth,
-          balanceTl: parseFloat(formData.balanceTl) || 0,
-          balanceUsd: parseFloat(formData.balanceUsd) || 0,
-          balanceAed: parseFloat(formData.balanceAed) || 0,
+          openingTl: parseFloat(formData.balanceTl) || 0,
+          openingUsd: parseFloat(formData.balanceUsd) || 0,
+          openingAed: parseFloat(formData.balanceAed) || 0,
         }),
       })
 
@@ -128,9 +135,9 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
   const handleEditBalance = (balance: BankBalance) => {
     setFormData({
       bankId: balance.bank_id,
-      balanceTl: String(balance.balance_tl || 0),
-      balanceUsd: String(balance.balance_usd || 0),
-      balanceAed: String(balance.closing_balance_aed || 0),
+      balanceTl: String(balance.opening_balance_tl ?? 0),
+      balanceUsd: String(balance.opening_balance_usd ?? 0),
+      balanceAed: String(balance.opening_balance_aed ?? 0),
     })
     setEditingBank(balance.bank_id)
     setIsDialogOpen(true)
@@ -143,8 +150,8 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
   }
 
   // Calculate totals
-  const totalTl = balances.reduce((sum, b) => sum + (Number(b.balance_tl) || 0), 0)
-  const totalUsd = balances.reduce((sum, b) => sum + (Number(b.balance_usd) || 0), 0)
+  const totalTl = balances.reduce((sum, b) => sum + (Number(b.closing_balance_tl ?? b.balance_tl) || 0), 0)
+  const totalUsd = balances.reduce((sum, b) => sum + (Number(b.closing_balance_usd ?? b.balance_usd) || 0), 0)
 
   // Get banks that don't have balances yet
   const banksWithoutBalance = banks.filter(
@@ -163,14 +170,19 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" onClick={handleAddNew}>
                 <Wallet className="h-4 w-4 mr-1" />
-                Bakiye Ekle
+                Açılış Bakiyesi
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
-                  {editingBank ? "Bakiye Düzenle" : "Yeni Bakiye Ekle"}
+                  {editingBank ? "Açılış Bakiyesini Düzenle" : "Açılış Bakiyesi Gir"}
                 </DialogTitle>
+                <p className="text-sm text-muted-foreground pt-1">
+                  Bu ayın <strong>başlangıç</strong> (açılış) bakiyesi. Genelde sadece
+                  takibe başladığın ilk ay girilir; sonraki aylar önceki ayın kalanından
+                  otomatik devreder. Ödenen giderler bu bakiyeden otomatik düşer.
+                </p>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -205,7 +217,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>TL Bakiye</Label>
+                    <Label>Açılış TL</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -217,7 +229,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>USD Bakiye</Label>
+                    <Label>Açılış USD</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -229,7 +241,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>AED Bakiye</Label>
+                    <Label>Açılış AED</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -279,18 +291,32 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                   </div>
                   <span className="font-medium">{balance.bank_name}</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-6">
+                  {/* Açılış (devir) */}
+                  <div className="text-right hidden sm:block">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Açılış</div>
+                    <div className="text-xs">
+                      ${Number(balance.opening_balance_usd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  {/* Bu ay hareket (net) */}
+                  <div className="text-right hidden sm:block">
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Bu Ay</div>
+                    <div className={`text-xs ${Number(balance.net_usd ?? 0) < 0 ? "text-red-600" : "text-green-600"}`}>
+                      {Number(balance.net_usd ?? 0) >= 0 ? "+" : ""}
+                      ${Number(balance.net_usd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                  {/* Kalan (kapanış) */}
                   <div className="text-right">
-                    <div className="text-sm font-medium">
-                      {Number(balance.balance_tl).toLocaleString("tr-TR", {
-                        minimumFractionDigits: 2,
-                      })}{" "}
-                      TL
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Kalan</div>
+                    <div className="text-sm font-semibold">
+                      ${Number(balance.closing_balance_usd ?? balance.balance_usd ?? 0).toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      ${Number(balance.balance_usd).toLocaleString("en-US", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {Number(balance.closing_balance_tl ?? balance.balance_tl ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL
+                      {Number(balance.closing_balance_aed ?? 0) !== 0 &&
+                        ` · ${Number(balance.closing_balance_aed).toLocaleString("en-US", { minimumFractionDigits: 2 })} AED`}
                     </div>
                   </div>
                   <Button
@@ -298,6 +324,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
                     variant="ghost"
                     className="h-8 w-8"
                     onClick={() => handleEditBalance(balance)}
+                    title="Açılış bakiyesini düzenle"
                   >
                     <Edit2 className="h-4 w-4" />
                   </Button>
