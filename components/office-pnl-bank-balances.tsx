@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select"
 import { Building2, Wallet, Edit2, Save } from "lucide-react"
 import { toast } from "sonner"
+import { OfficePnlBankManager } from "@/components/office-pnl-bank-manager"
 
 interface BankBalance {
   id: string
@@ -169,6 +170,8 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
             <Building2 className="h-5 w-5" />
             Hesap Bakiyeleri
           </CardTitle>
+          <div className="flex items-center gap-1">
+          <OfficePnlBankManager onChanged={() => { fetchData(); onChanged?.() }} />
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" onClick={handleAddNew}>
@@ -268,6 +271,7 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
