@@ -46,9 +46,11 @@ interface PayeeBank {
 
 interface OfficePnlBankBalancesProps {
   reportMonth: string
+  refreshKey?: number
+  onChanged?: () => void
 }
 
-export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProps) {
+export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }: OfficePnlBankBalancesProps) {
   const [balances, setBalances] = useState<BankBalance[]>([])
   const [banks, setBanks] = useState<PayeeBank[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -63,7 +65,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
 
   useEffect(() => {
     fetchData()
-  }, [reportMonth])
+  }, [reportMonth, refreshKey])
 
   const fetchData = async () => {
     setIsLoading(true)
@@ -117,6 +119,7 @@ export function OfficePnlBankBalances({ reportMonth }: OfficePnlBankBalancesProp
         setEditingBank(null)
         setFormData({ bankId: "", balanceTl: "", balanceUsd: "", balanceAed: "" })
         fetchData()
+        onChanged?.()
       } else {
         let errorMessage = "Kayıt başarısız"
         try {

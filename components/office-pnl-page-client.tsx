@@ -6,6 +6,7 @@ import { OfficePnlList } from "@/components/office-pnl-list"
 import { OfficePnlMonthlySelector } from "@/components/office-pnl-monthly-selector"
 import { OfficePnlBankBalances } from "@/components/office-pnl-bank-balances"
 import { OfficePnlMonthlyComparison } from "@/components/office-pnl-monthly-comparison"
+import { OfficePnlSummary } from "@/components/office-pnl-summary"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarChart3, List, Calendar } from "lucide-react"
 
@@ -13,16 +14,22 @@ export function OfficePnlPageClient() {
   const [selectedMonth, setSelectedMonth] = useState<string>(
     format(new Date(), "yyyy-MM")
   )
+  // Kayıt/bakiye değişince özet ve bakiyeler yeniden çekilsin.
+  const [refreshKey, setRefreshKey] = useState(0)
+  const bump = () => setRefreshKey((k) => k + 1)
 
   return (
     <div className="space-y-6">
+      {/* Genel özet (tüm şirketler): Kasa + bu ay gelir/gider/net */}
+      <OfficePnlSummary reportMonth={selectedMonth} refreshKey={refreshKey} />
+
       {/* Month Selector and Bank Balances */}
       <div className="grid gap-6 lg:grid-cols-2">
         <OfficePnlMonthlySelector
           selectedMonth={selectedMonth}
           onMonthChange={setSelectedMonth}
         />
-        <OfficePnlBankBalances reportMonth={selectedMonth} />
+        <OfficePnlBankBalances reportMonth={selectedMonth} refreshKey={refreshKey} onChanged={bump} />
       </div>
 
       {/* Tabs for List and Comparison */}
@@ -39,7 +46,7 @@ export function OfficePnlPageClient() {
         </TabsList>
 
         <TabsContent value="list">
-          <OfficePnlList reportMonth={selectedMonth} />
+          <OfficePnlList reportMonth={selectedMonth} onChanged={bump} />
         </TabsContent>
 
         <TabsContent value="comparison">

@@ -44,9 +44,11 @@ import {
 
 interface OfficePnlListProps {
   reportMonth?: string
+  /** Kayıt eklenince/silinince üst özeti tazelemek için. */
+  onChanged?: () => void
 }
 
-export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
+export function OfficePnlList({ reportMonth, onChanged }: OfficePnlListProps) {
   const [records, setRecords] = useState<any[]>([])
   const [companies, setCompanies] = useState<any[]>([])
   const [feeCodes, setFeeCodes] = useState<any[]>([])
@@ -124,6 +126,7 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
       const response = await fetch(`/api/office-pnl/record/${id}`, { method: "DELETE" })
       if (response.ok) {
         fetchRecords()
+        onChanged?.()
       }
     } catch (error) {
       console.error("Error deleting record:", error)
@@ -152,6 +155,7 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
     setDialogOpen(false)
     setEditingRecord(null)
     fetchRecords()
+    onChanged?.()
   }
 
   const handleSelectAll = (checked: boolean) => {
@@ -178,6 +182,7 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
 
     try {
       await Promise.all(Array.from(selectedRecords).map((id) => fetch(`/api/office-pnl/record/${id}`, { method: "DELETE" })))
+      onChanged?.()
       setSelectedRecords(new Set())
       fetchRecords()
     } catch (error) {
@@ -314,7 +319,7 @@ export function OfficePnlList({ reportMonth }: OfficePnlListProps) {
           </Button>
           <OfficePnlImportDialog
             reportMonth={reportMonth || new Date().toISOString().slice(0, 7)}
-            onImported={fetchRecords}
+            onImported={() => { fetchRecords(); onChanged?.() }}
           />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
