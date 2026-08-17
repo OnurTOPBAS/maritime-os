@@ -48,7 +48,10 @@ export async function GET(request: NextRequest) {
         )
     `
 
-    const kasa = await computeTotalKasa(month)
+    const kasa = await computeTotalKasa(
+      month,
+      superAdmin ? { all: true } : { all: false, companyIds: allowed },
+    )
 
     const incomeUsd = Number(totals.income_usd) || 0
     const expenseUsd = Number(totals.expense_usd) || 0

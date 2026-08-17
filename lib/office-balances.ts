@@ -47,17 +47,20 @@ export async function computeClosing(bankId: string, month: string, depth = 0): 
   return { usd: opening.usd + n(net.usd), tl: opening.tl + n(net.tl), aed: opening.aed }
 }
 
-/** Tüm bankaların o ay sonundaki kapanış (kalan) toplamı = güncel kasa. */
-export async function computeTotalKasa(month: string): Promise<Money> {
-  const banks = await sql`
-    SELECT DISTINCT b.id
-    FROM office_payee_banks b
-    WHERE b.id IN (SELECT bank_id FROM office_bank_balances)
-       OR b.id IN (
-         SELECT payee_bank_id FROM office_pnl
-         WHERE payee_bank_id IS NOT NULL AND report_month <= ${month}
-       )
-  `
+/**
+ * Bankaların o ay sonundaki kapanış (kalan) toplamı = güncel kasa.
+ * scope.all=true ise tüm bankalar (süper yönetici); değilse yalnızca
+ * companyIds'e ait bankalar (şirket bazında izolasyon).
+ */
+export async function computeTotalKasa(
+  month: string,
+  scope: { all?: boolean; companyIds?: string[] } = { all: true },
+): Promise<Money> {
+  const ids = scope.companyIds ?? []
+  const banks = scope.all
+    ? await sql`SELECT id FROM office_payee_banks`
+    : await sql`SELECT id FROM office_payee_banks WHERE company_id = ANY(${ids}::uuid[])`
+
   const total: Money = { usd: 0, tl: 0, aed: 0 }
   for (const b of banks) {
     const c = await computeClosing(b.id, month)

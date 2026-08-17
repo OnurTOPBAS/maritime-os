@@ -27,18 +27,15 @@ export async function GET(request: NextRequest) {
     }
 
     if (reportMonth) {
-      // Gösterilecek bankalar: herhangi bir ayda elle bakiyesi olanlar VEYA
-      // bu ay işlem yapılmış olanlar.
-      const banks = await sql`
-        SELECT DISTINCT b.id, b.name
-        FROM office_payee_banks b
-        WHERE b.id IN (SELECT bank_id FROM office_bank_balances)
-           OR b.id IN (
-             SELECT payee_bank_id FROM office_pnl
-             WHERE report_month = ${reportMonth} AND payee_bank_id IS NOT NULL
-           )
-        ORDER BY b.name ASC
-      `
+      // Şirket izolasyonu: süper yönetici tüm hesapları, diğerleri yalnızca
+      // erişebildiği şirketlerin hesaplarını görür.
+      const banks = superAdmin
+        ? await sql`SELECT id, name FROM office_payee_banks ORDER BY name ASC`
+        : await sql`
+            SELECT id, name FROM office_payee_banks
+            WHERE company_id = ANY(${allowed}::uuid[])
+            ORDER BY name ASC
+          `
 
       const result = []
       for (const b of banks) {

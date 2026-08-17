@@ -217,11 +217,25 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
       ...prev,
       companyId,
       companyName: company?.name || "",
+      // Bankalar şirkete özel; şirket değişince seçili banka sıfırlanır.
+      payeeBankId: "",
+      payeeBankCustom: "",
     }))
   }
 
+  // Seçili şirkete ait bankalar (banka listesi şirkete göre süzülür).
+  const banksForCompany = payeeBanks.filter(
+    (b) => !formData.companyId || !b.company_id || b.company_id === formData.companyId,
+  )
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!formData.companyId) {
+      alert("Lütfen bir şirket seçin.")
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -372,7 +386,7 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="company">Şirket</Label>
+              <Label htmlFor="company">Şirket *</Label>
               <Select value={formData.companyId} onValueChange={handleCompanyChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Şirket seçin" />
@@ -609,7 +623,7 @@ export function OfficePnlForm({ record, reportMonth, onSuccess, onCancel }: Offi
                     <SelectValue placeholder="Banka seçin" />
                   </SelectTrigger>
                   <SelectContent>
-                    {payeeBanks.map((bank) => (
+                    {banksForCompany.map((bank) => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.name}
                       </SelectItem>
