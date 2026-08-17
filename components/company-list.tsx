@@ -107,11 +107,11 @@ export function CompanyList({ initialCompanies }: CompanyListProps) {
           {filteredCompanies.map((company) => (
             <Card key={company.id} className="group hover:border-primary/20">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <CardTitle className="flex items-center gap-2 text-base min-w-0">
+                  <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
                     <Building2 className="h-4 w-4" />
                   </div>
-                  <span className="truncate">{company.name}</span>
+                  <span className="truncate min-w-0">{company.name}</span>
                 </CardTitle>
                 {company.email && <CardDescription className="truncate">{company.email}</CardDescription>}
               </CardHeader>
