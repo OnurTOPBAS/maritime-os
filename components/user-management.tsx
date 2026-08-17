@@ -55,6 +55,8 @@ export function UserManagement({ companyId }: UserManagementProps) {
     role: "viewer",
   })
   const [roles, setRoles] = useState<Role[]>([])
+  // "new" = yeni kullanıcı oluştur, "existing" = kayıtlı kullanıcıyı e-posta ile ata
+  const [addMode, setAddMode] = useState<"new" | "existing">("new")
 
   useEffect(() => {
     loadUsers()
@@ -85,6 +87,34 @@ export function UserManagement({ companyId }: UserManagementProps) {
   }
 
   const handleAddUser = async () => {
+    // Mevcut kullanıcı atama: yalnızca e-posta + rol.
+    if (addMode === "existing") {
+      if (!formData.email) {
+        alert("Lütfen e-posta girin")
+        return
+      }
+      try {
+        const response = await fetch("/api/users/assign", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: formData.email, role: formData.role, companyId }),
+        })
+        if (response.ok) {
+          setIsAddDialogOpen(false)
+          setFormData({ name: "", email: "", password: "", role: "viewer" })
+          loadUsers()
+        } else {
+          const error = await response.json()
+          alert(error.error || "Kullanıcı atanamadı")
+        }
+      } catch (error) {
+        console.error("Error assigning user:", error)
+        alert("Kullanıcı atanamadı")
+      }
+      return
+    }
+
+    // Yeni kullanıcı oluştur.
     if (!formData.name || !formData.email || !formData.password) {
       alert("Lütfen tüm zorunlu alanları doldurun")
       return
@@ -276,19 +306,39 @@ export function UserManagement({ companyId }: UserManagementProps) {
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Yeni Kullanıcı Ekle</DialogTitle>
-                <DialogDescription>Şirketinize yeni bir kullanıcı ekleyin.</DialogDescription>
+                <DialogTitle>Kullanıcı Ekle</DialogTitle>
+                <DialogDescription>Bu şirkete kullanıcı ekleyin veya kayıtlı birini atayın.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">İsim *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Ahmet Yılmaz"
-                  />
+                {/* Mod: yeni oluştur mu, kayıtlı kullanıcıyı mı ata */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant={addMode === "new" ? "default" : "outline"}
+                    onClick={() => setAddMode("new")}
+                  >
+                    Yeni Kullanıcı
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={addMode === "existing" ? "default" : "outline"}
+                    onClick={() => setAddMode("existing")}
+                  >
+                    Kayıtlı Kullanıcı
+                  </Button>
                 </div>
+
+                {addMode === "new" && (
+                  <div>
+                    <Label htmlFor="name">İsim *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ahmet Yılmaz"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="email">Email *</Label>
                   <Input
@@ -298,17 +348,24 @@ export function UserManagement({ companyId }: UserManagementProps) {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="ahmet@example.com"
                   />
+                  {addMode === "existing" && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Bu e-postayla <strong>kayıt olmuş</strong> bir kullanıcı seçili şirkete eklenir.
+                    </p>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="password">Şifre *</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Güçlü bir şifre"
-                  />
-                </div>
+                {addMode === "new" && (
+                  <div>
+                    <Label htmlFor="password">Şifre *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Güçlü bir şifre"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="role">Rol *</Label>
                   <Select
