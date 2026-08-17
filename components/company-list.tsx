@@ -116,10 +116,12 @@ export function CompanyList({ initialCompanies }: CompanyListProps) {
                 {company.email && <CardDescription className="truncate">{company.email}</CardDescription>}
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 pb-4 border-b border-border/50">
-                  {company.phone && <DataLabel label="Telefon" value={company.phone} />}
-                  {company.tax_number && <DataLabel label="Vergi No" value={company.tax_number} />}
-                </div>
+                {(company.phone || company.tax_number) && (
+                  <div className="grid grid-cols-2 gap-3 pb-4 border-b border-border/50">
+                    {company.phone && <DataLabel label="Telefon" value={company.phone} />}
+                    {company.tax_number && <DataLabel label="Vergi No" value={company.tax_number} />}
+                  </div>
+                )}
                 {company.address && <div className="text-xs text-muted-foreground line-clamp-2">{company.address}</div>}
                 <div className="flex gap-2 pt-2">
                   <Button asChild variant="outline" size="sm" className="flex-1 bg-transparent">

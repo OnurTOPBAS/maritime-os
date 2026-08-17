@@ -25,22 +25,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 })
     }
 
+    // Üyelik iki tabloda olabilir: user_permissions ve company_team_members.
+    // İkisini de dahil ederiz; aksi halde bir tabloya eklenmiş kullanıcılar
+    // listede görünmez.
     const users = await sql`
-      SELECT 
+      SELECT
         u.id,
         u.name,
         u.email,
         u.created_at,
-        up.role as permission_role,
-        CASE 
+        COALESCE(up.role, ctm.role) as permission_role,
+        CASE
           WHEN c.owner_id = u.id THEN true
           ELSE false
         END as is_owner,
         true as is_active
       FROM users u
-      LEFT JOIN user_permissions up ON u.id = up.user_id AND up.company_id = ${companyId}
+      LEFT JOIN user_permissions up ON u.id = up.user_id AND up.company_id = ${companyId} AND up.is_active = true
+      LEFT JOIN company_team_members ctm ON u.id = ctm.user_id AND ctm.company_id = ${companyId}
       LEFT JOIN companies c ON c.id = ${companyId}
-      WHERE c.owner_id = u.id OR up.user_id = u.id
+      WHERE c.owner_id = u.id OR up.user_id = u.id OR ctm.user_id = u.id
       ORDER BY u.name
     `
 
