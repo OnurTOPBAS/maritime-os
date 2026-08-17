@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { requireSystemAdmin } from "@/lib/authz"
+import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 import { computeOpening, computeClosing } from "@/lib/office-balances"
 
@@ -14,10 +14,17 @@ import { computeOpening, computeClosing } from "@/lib/office-balances"
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth()
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
     const reportMonth = searchParams.get("reportMonth")
+
+    // Yetkisi olmayan kullanıcı (hiçbir şirkete üye değil) kasa/bakiye görmez.
+    const superAdmin = await isSuperAdmin(user.id)
+    const allowed = await getAccessibleCompanyIds(user.id)
+    if (!superAdmin && allowed.length === 0) {
+      return NextResponse.json([])
+    }
 
     if (reportMonth) {
       // Gösterilecek bankalar: herhangi bir ayda elle bakiyesi olanlar VEYA

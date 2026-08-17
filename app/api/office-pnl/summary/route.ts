@@ -3,6 +3,7 @@ import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 import { handleApiError } from "@/lib/api-error"
 import { computeTotalKasa } from "@/lib/office-balances"
+import { getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
 
 /**
  * Office PnL özeti: tüm şirketler birlikte.
@@ -14,10 +15,23 @@ import { computeTotalKasa } from "@/lib/office-balances"
  */
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth()
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
     const month = searchParams.get("reportMonth") || new Date().toISOString().slice(0, 7)
+
+    // Erişim sınırı: kullanıcı yalnızca erişebildiği şirketlerin (ve kendi
+    // oluşturduğu şirketsiz kayıtların) toplamını görür. Süper yönetici hepsini.
+    const superAdmin = await isSuperAdmin(user.id)
+    const allowed = await getAccessibleCompanyIds(user.id)
+
+    if (!superAdmin && allowed.length === 0) {
+      // Hiçbir şirkete yetkisi yoksa boş özet (yeni üye PnL göremez).
+      return NextResponse.json({
+        month, kasaUsd: 0, kasaTl: 0, kasaAed: 0,
+        incomeUsd: 0, expenseUsd: 0, netUsd: 0, incomeTl: 0, expenseTl: 0, netTl: 0,
+      })
+    }
 
     const [totals] = await sql`
       SELECT
@@ -27,6 +41,11 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(CASE WHEN type = 'expense' THEN price_tl  ELSE 0 END), 0) AS expense_tl
       FROM office_pnl
       WHERE report_month = ${month}
+        AND (
+          ${superAdmin}
+          OR company_id = ANY(${allowed}::uuid[])
+          OR (company_id IS NULL AND created_by = ${user.id}::uuid)
+        )
     `
 
     const kasa = await computeTotalKasa(month)
