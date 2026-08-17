@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { requireSystemAdmin } from "@/lib/authz"
+import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 
 
@@ -9,9 +9,15 @@ export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
 
-    // Fetch reports with calculated totals from office_pnl records
+    // Gelir/gider toplamları yalnızca kullanıcının erişebildiği şirketlerin
+    // kayıtlarından hesaplanır (+ kullanıcının kendi şirketsiz kayıtları).
+    // Süper yönetici tüm şirketleri görür. Önceden filtre yoktu; yeni bir
+    // kullanıcı tüm şirketlerin toplamını görebiliyordu.
+    const superAdmin = await isSuperAdmin(user.id)
+    const allowed = await getAccessibleCompanyIds(user.id)
+
     const reports = await sql`
-      SELECT 
+      SELECT
         r.id,
         r.report_month,
         r.is_closed,
@@ -23,7 +29,15 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(CASE WHEN p.type = 'expense' THEN p.price_tl ELSE 0 END), 0) as total_expense_tl
       FROM office_monthly_reports r
       LEFT JOIN office_pnl p ON p.report_month = r.report_month
+        AND (
+          ${superAdmin}
+          OR p.company_id = ANY(${allowed}::uuid[])
+          OR (p.company_id IS NULL AND p.created_by = ${user.id}::uuid)
+        )
       GROUP BY r.id, r.report_month, r.is_closed, r.notes, r.created_at
+      -- Süper yönetici tüm ayları görür; diğerleri yalnızca kendi şirket(ler)inde
+      -- kaydı olan ayları görür (yeni/yetkisiz kullanıcıya rapor görünmez).
+      HAVING ${superAdmin} OR COUNT(p.id) > 0
       ORDER BY r.report_month DESC
     `
 
