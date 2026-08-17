@@ -254,7 +254,12 @@ export function ShipForm({ fleetId, onSuccess, ship }: ShipFormProps) {
         }
       } else {
         console.error("[v0] Ship save failed:", data)
-        alert(data.error || "Gemi kaydedilemedi")
+        // Doğrulama hataları { errors: [{field, message}] } biçiminde gelir;
+        // kullanıcıya hangi alanın hatalı olduğunu göster.
+        const msg = Array.isArray(data.errors)
+          ? data.errors.map((e: any) => e.message).join("\n")
+          : data.error || "Gemi kaydedilemedi"
+        alert(msg)
       }
     } catch (error) {
       console.error("[v0] Save ship error:", error)
