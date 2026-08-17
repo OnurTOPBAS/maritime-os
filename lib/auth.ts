@@ -60,9 +60,15 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function setAuthCookie(token: string) {
   const cookieStore = await cookies()
+  // Çerez yalnızca uygulama HTTPS'ten sunuluyorsa "Secure" olur. İç ağda düz
+  // HTTP (http://SUNUCU-IP:3000) kullanıldığında Secure çerez tarayıcı
+  // tarafından saklanmaz ve başka makinelerden giriş yapılamazdı; bu yüzden
+  // Secure bayrağı NODE_ENV yerine APP_URL protokolünden türetilir.
+  const appUrl = process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+  const secure = appUrl.startsWith("https://")
   cookieStore.set("auth-token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7, // 7 days
     path: "/",
