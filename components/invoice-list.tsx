@@ -88,7 +88,12 @@ export function InvoiceList() {
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("invoice-column-widths")
-      return saved ? JSON.parse(saved) : {}
+      // Bozuk localStorage değeri sayfayı çökertmesin.
+      try {
+        return saved ? JSON.parse(saved) : {}
+      } catch {
+        return {}
+      }
     }
     return {}
   })

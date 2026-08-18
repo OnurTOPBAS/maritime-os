@@ -184,7 +184,7 @@ export function PSCPreparationChecklist({ shipId }: PSCPreparationChecklistProps
       <Card>
         <CardContent className="p-3 md:p-6">
           <Accordion type="multiple" className="w-full">
-            {Object.entries(data.checklist).map(([category, items]: [string, any]) => {
+            {Object.entries(data.checklist || {}).map(([category, items]: [string, any]) => {
               const categoryItems = items as any[]
               const completedInCategory = categoryItems.filter((item) => item.is_completed).length
               const totalInCategory = categoryItems.length

@@ -95,7 +95,7 @@ export function CertificateReportsDashboard() {
     { name: "Süresi Dolmuş", value: reportData.stats.expired, color: "#991b1b" },
   ]
 
-  const typeData = Object.entries(reportData.byType).map(([type, count]) => ({
+  const typeData = Object.entries(reportData.byType || {}).map(([type, count]) => ({
     name: type,
     count,
   }))

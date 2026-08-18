@@ -179,7 +179,7 @@ export function SmartFilters({ entityType, filters, onFiltersChange, filterField
                   <div key={savedFilter.id} className="flex items-center justify-between p-3 border rounded-md">
                     <button onClick={() => loadFilter(savedFilter)} className="flex-1 text-left hover:text-primary">
                       <p className="font-medium">{savedFilter.name}</p>
-                      <p className="text-xs text-muted-foreground">{Object.keys(savedFilter.filters).length} filtre</p>
+                      <p className="text-xs text-muted-foreground">{Object.keys(savedFilter.filters || {}).length} filtre</p>
                     </button>
                     <Button variant="ghost" size="icon" onClick={() => deleteFilter(savedFilter.id)}>
                       <Trash2 className="h-4 w-4 text-destructive" />
