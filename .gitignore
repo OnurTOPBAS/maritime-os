@@ -27,3 +27,6 @@ yarn-error.log*
 next-env.d.ts
 # yüklenen dosyalar (yerel disk depolama)
 /var/uploads/
+
+# Yerel yedekler
+backups/
