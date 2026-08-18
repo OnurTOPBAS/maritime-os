@@ -33,11 +33,15 @@ export function CompanyForm({ onSuccess }: CompanyFormProps) {
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
 
-      if (response.ok) {
-        onSuccess(data.company)
+      if (response.ok && data?.id) {
+        // API şirketi düz döndürür (data.company değil). Yanlış alan
+        // okununca listeye undefined eklenip kart render'ı çöküyordu.
+        onSuccess(data)
         setFormData({ name: "", address: "", phone: "", email: "", tax_number: "" })
+      } else if (!response.ok) {
+        alert(data?.error || "Şirket oluşturulamadı")
       }
     } catch (error) {
       console.error("[v0] Create company error:", error)
