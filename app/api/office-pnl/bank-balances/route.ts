@@ -27,15 +27,26 @@ export async function GET(request: NextRequest) {
     }
 
     if (reportMonth) {
+      // Opsiyonel şirket filtresi (arayüzdeki şirket seçici gönderir).
+      const companyFilter = searchParams.get("companyId")
+      const useFilter = companyFilter && companyFilter !== "all" ? companyFilter : null
+      // Filtre istenen şirkete erişim yoksa boş dön.
+      if (useFilter && !superAdmin && !allowed.includes(useFilter)) {
+        return NextResponse.json([])
+      }
+
       // Şirket izolasyonu: süper yönetici tüm hesapları, diğerleri yalnızca
-      // erişebildiği şirketlerin hesaplarını görür.
-      const banks = superAdmin
-        ? await sql`SELECT id, name FROM office_payee_banks ORDER BY name ASC`
-        : await sql`
-            SELECT id, name FROM office_payee_banks
-            WHERE company_id = ANY(${allowed}::uuid[])
-            ORDER BY name ASC
-          `
+      // erişebildiği şirketlerin hesaplarını görür. Banka tipine göre gruplu
+      // sırala (aynı bankanın hesapları arka arkaya), sonra ada göre.
+      const banks = await sql`
+        SELECT id, name, bank_type, company_id
+        FROM office_payee_banks
+        WHERE (
+          ${superAdmin} OR company_id = ANY(${allowed}::uuid[])
+        )
+        AND (${useFilter}::uuid IS NULL OR company_id = ${useFilter}::uuid)
+        ORDER BY COALESCE(bank_type, 'zzz') ASC, name ASC
+      `
 
       const result = []
       for (const b of banks) {
@@ -44,6 +55,8 @@ export async function GET(request: NextRequest) {
         result.push({
           bank_id: b.id,
           bank_name: b.name,
+          bank_type: b.bank_type || "other",
+          company_id: b.company_id,
           report_month: reportMonth,
           opening_balance_usd: opening.usd,
           opening_balance_tl: opening.tl,

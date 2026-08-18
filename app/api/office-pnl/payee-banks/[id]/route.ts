@@ -14,7 +14,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const { id } = await params
     if (!UUID.test(id)) return NextResponse.json({ error: "Geçersiz kimlik" }, { status: 400 })
 
-    const { name } = await request.json()
+    const { name, bankType, companyId } = await request.json()
     if (!name || typeof name !== "string" || !name.trim()) {
       return NextResponse.json({ error: "Ad zorunludur" }, { status: 400 })
     }
@@ -28,7 +28,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const result = await sql`
-      UPDATE office_payee_banks SET name = ${name.trim()} WHERE id = ${id} RETURNING *
+      UPDATE office_payee_banks SET
+        name = ${name.trim()},
+        bank_type = COALESCE(${bankType ?? null}, bank_type),
+        company_id = COALESCE(${companyId ?? null}, company_id)
+      WHERE id = ${id} RETURNING *
     `
     if (result.length === 0) return NextResponse.json({ error: "Bulunamadı" }, { status: 404 })
     return NextResponse.json(result[0])

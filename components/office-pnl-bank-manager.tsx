@@ -6,13 +6,19 @@ import { Input } from "@/components/ui/input"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Settings2, Plus, Pencil, Trash2, Check, X } from "lucide-react"
 import { toast } from "sonner"
+import { BankIcon, bankTypeLabel, BANK_TYPES } from "@/components/bank-icon"
 
 interface Bank {
   id: string
   name: string
+  bank_type?: string
+  company_id?: string
 }
+
+interface CompanyOpt { id: string; name: string }
 
 interface Props {
   onChanged?: () => void
@@ -21,18 +27,28 @@ interface Props {
 export function OfficePnlBankManager({ onChanged }: Props) {
   const [open, setOpen] = useState(false)
   const [banks, setBanks] = useState<Bank[]>([])
+  const [companies, setCompanies] = useState<CompanyOpt[]>([])
   const [loading, setLoading] = useState(false)
   const [newName, setNewName] = useState("")
+  const [newType, setNewType] = useState("other")
+  const [newCompanyId, setNewCompanyId] = useState("")
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
 
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/office-pnl/payee-banks")
-      if (res.ok) {
-        const data = await res.json()
+      const [banksRes, compRes] = await Promise.all([
+        fetch("/api/office-pnl/payee-banks"),
+        fetch("/api/companies"),
+      ])
+      if (banksRes.ok) {
+        const data = await banksRes.json()
         setBanks(Array.isArray(data) ? data : [])
+      }
+      if (compRes.ok) {
+        const d = await compRes.json()
+        setCompanies(Array.isArray(d) ? d.map((c: any) => ({ id: c.id, name: c.name })) : [])
       }
     } finally {
       setLoading(false)
@@ -46,10 +62,14 @@ export function OfficePnlBankManager({ onChanged }: Props) {
   const add = async () => {
     const name = newName.trim()
     if (!name) return
+    if (!newCompanyId) {
+      toast.error("Lütfen şirket seçin")
+      return
+    }
     const res = await fetch("/api/office-pnl/payee-banks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, bankType: newType, companyId: newCompanyId }),
     })
     if (res.ok) {
       setNewName("")
@@ -106,15 +126,37 @@ export function OfficePnlBankManager({ onChanged }: Props) {
           <DialogTitle>Banka & Kasa Yönetimi</DialogTitle>
         </DialogHeader>
 
-        {/* Yeni ekle */}
-        <div className="flex gap-2">
+        {/* Yeni ekle: ad + banka tipi + şirket */}
+        <div className="space-y-2 border rounded-md p-3">
           <Input
-            placeholder="Yeni banka / kasa adı"
+            placeholder="Hesap adı (ör. İş Bankası USD 1)"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
-          <Button onClick={add} className="gap-1 shrink-0">
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={newType} onValueChange={setNewType}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Banka tipi" />
+              </SelectTrigger>
+              <SelectContent>
+                {BANK_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={newCompanyId} onValueChange={setNewCompanyId}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Şirket seçin" />
+              </SelectTrigger>
+              <SelectContent>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={add} className="gap-1 w-full">
             <Plus className="h-4 w-4" /> Ekle
           </Button>
         </div>
@@ -144,7 +186,11 @@ export function OfficePnlBankManager({ onChanged }: Props) {
                   </>
                 ) : (
                   <>
-                    <span className="flex-1 text-sm">{b.name}</span>
+                    <BankIcon type={b.bank_type} size={24} />
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm block truncate">{b.name}</span>
+                      <span className="text-[11px] text-muted-foreground">{bankTypeLabel(b.bank_type)}</span>
+                    </div>
                     <Button
                       size="icon" variant="ghost" className="h-8 w-8"
                       onClick={() => { setEditingId(b.id); setEditName(b.name) }}

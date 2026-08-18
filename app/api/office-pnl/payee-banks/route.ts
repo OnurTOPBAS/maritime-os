@@ -35,16 +35,18 @@ export async function POST(request: NextRequest) {
     const user = await requireAuth()
     await requireSystemAdmin(user.id)
 
-    const { name, companyId } = await request.json()
+    const { name, companyId, bankType } = await request.json()
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json({ error: "Ad zorunludur" }, { status: 400 })
     }
 
     const result = await sql`
-      INSERT INTO office_payee_banks (name, is_system, company_id)
-      VALUES (${name.trim()}, false, ${companyId || null})
-      ON CONFLICT (name) DO UPDATE SET company_id = COALESCE(EXCLUDED.company_id, office_payee_banks.company_id)
+      INSERT INTO office_payee_banks (name, is_system, company_id, bank_type)
+      VALUES (${name.trim()}, false, ${companyId || null}, ${bankType || "other"})
+      ON CONFLICT (name) DO UPDATE SET
+        company_id = COALESCE(EXCLUDED.company_id, office_payee_banks.company_id),
+        bank_type = COALESCE(EXCLUDED.bank_type, office_payee_banks.bank_type)
       RETURNING *
     `
 

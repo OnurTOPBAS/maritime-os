@@ -22,11 +22,13 @@ import {
 import { Building2, Wallet, Edit2, Save } from "lucide-react"
 import { toast } from "sonner"
 import { OfficePnlBankManager } from "@/components/office-pnl-bank-manager"
+import { BankIcon, bankTypeLabel } from "@/components/bank-icon"
 
 interface BankBalance {
   id: string
   bank_id: string
   bank_name: string
+  bank_type?: string
   report_month: string
   balance_tl: number
   balance_usd: number
@@ -38,6 +40,11 @@ interface BankBalance {
   closing_balance_tl?: number
   closing_balance_usd?: number
   closing_balance_aed?: number
+}
+
+interface CompanyOpt {
+  id: string
+  name: string
 }
 
 interface PayeeBank {
@@ -57,6 +64,8 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingBank, setEditingBank] = useState<string | null>(null)
+  const [companies, setCompanies] = useState<CompanyOpt[]>([])
+  const [selectedCompany, setSelectedCompany] = useState<string>("all")
   const [formData, setFormData] = useState({
     bankId: "",
     balanceTl: "",
@@ -64,15 +73,24 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
     balanceAed: "",
   })
 
+  // Şirket listesini bir kez çek (filtre için).
+  useEffect(() => {
+    fetch("/api/companies")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCompanies(Array.isArray(d) ? d.map((c: any) => ({ id: c.id, name: c.name })) : []))
+      .catch(() => setCompanies([]))
+  }, [])
+
   useEffect(() => {
     fetchData()
-  }, [reportMonth, refreshKey])
+  }, [reportMonth, refreshKey, selectedCompany])
 
   const fetchData = async () => {
     setIsLoading(true)
     try {
+      const companyParam = selectedCompany !== "all" ? `&companyId=${selectedCompany}` : ""
       const [balancesRes, banksRes] = await Promise.all([
-        fetch(`/api/office-pnl/bank-balances?reportMonth=${reportMonth}`),
+        fetch(`/api/office-pnl/bank-balances?reportMonth=${reportMonth}${companyParam}`),
         fetch("/api/office-pnl/payee-banks"),
       ])
 
@@ -275,6 +293,25 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
         </div>
       </CardHeader>
       <CardContent>
+        {/* Şirket filtresi — sadece birden çok şirkete erişimin varsa */}
+        {companies.length > 1 && (
+          <div className="mb-4 max-w-xs">
+            <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Tüm Şirketler" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tüm Şirketler</SelectItem>
+                {companies.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="text-center py-4 text-muted-foreground">Yükleniyor...</div>
         ) : balances.length === 0 ? (
@@ -283,19 +320,21 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
           </div>
         ) : (
           <div className="space-y-2">
-            {balances.map((balance) => (
+            {balances.map((balance, i) => {
+              const prev = balances[i - 1]
+              const showGroup = !prev || prev.bank_type !== balance.bank_type
+              return (
+              <div key={balance.id}>
+              {showGroup && (
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-2 pb-1">
+                  {bankTypeLabel(balance.bank_type)}
+                </div>
+              )}
               <div
-                key={balance.id}
                 className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    {balance.bank_name === "Cash" ? (
-                      <Wallet className="h-4 w-4 text-primary" />
-                    ) : (
-                      <Building2 className="h-4 w-4 text-primary" />
-                    )}
-                  </div>
+                  <BankIcon type={balance.bank_type} size={32} />
                   <span className="font-medium">{balance.bank_name}</span>
                 </div>
                 <div className="flex items-center gap-6">
@@ -337,7 +376,9 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
                   </Button>
                 </div>
               </div>
-            ))}
+              </div>
+              )
+            })}
 
             {/* Totals */}
             <div className="mt-4 pt-4 border-t">
