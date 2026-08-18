@@ -532,21 +532,36 @@ export function ShipDetailView({ ship, initialFixtures }: ShipDetailViewProps) {
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {Object.entries(currentShip.consumption_operations).map(([operation, consumption]: [string, any]) => (
-                    <div key={operation} className="p-4 border rounded-lg bg-muted/30">
-                      <p className="text-sm font-medium text-muted-foreground mb-2 capitalize">
-                        {operation.replace(/_/g, " ")}
-                      </p>
-                      <div className="space-y-1">
-                        <p className="text-sm">
-                          <span className="font-medium">FO:</span> {consumption.fo || 0} MT/day
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">MGO:</span> {consumption.mgo || 0} MT/day
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    // Sabit 10 operasyon; kayıtlı veri bozuk/numaralı olsa bile
+                    // isimli ve düzenli gösterilir (0,1,2… kartları oluşmaz).
+                    const LABELS: Record<string, string> = {
+                      loading: "Yükleme", discharge: "Tahliye", laden: "Yüklü Seyir",
+                      ballast: "Boş Seyir", anchor: "Demirde", idle: "Boşta",
+                      inerting: "Inerting", washing: "Washing", heating: "Heating",
+                      incinerator: "Incinerator",
+                    }
+                    const ops: any =
+                      currentShip.consumption_operations && typeof currentShip.consumption_operations === "object"
+                        ? currentShip.consumption_operations
+                        : {}
+                    return Object.entries(LABELS).map(([key, label]) => {
+                      const c = ops[key] && typeof ops[key] === "object" ? ops[key] : {}
+                      return (
+                        <div key={key} className="p-4 border rounded-lg bg-muted/30">
+                          <p className="text-sm font-medium text-muted-foreground mb-2">{label}</p>
+                          <div className="space-y-1">
+                            <p className="text-sm">
+                              <span className="font-medium">FO:</span> {Number(c.fo) || 0} MT/day
+                            </p>
+                            <p className="text-sm">
+                              <span className="font-medium">MGO:</span> {Number(c.mgo) || 0} MT/day
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
 
                 {currentShip.fuel_consumption_file_url && (
