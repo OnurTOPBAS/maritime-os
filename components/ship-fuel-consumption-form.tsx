@@ -28,8 +28,38 @@ interface ShipFuelConsumptionFormProps {
   onChange: (data: { operations: ConsumptionOperations }) => void
 }
 
+const operationLabels: Record<keyof ConsumptionOperations, string> = {
+  loading: "Yükleme",
+  discharge: "Tahliye",
+  laden: "Yüklü Seyir",
+  ballast: "Boş Seyir",
+  anchor: "Demirde",
+  idle: "Boşta",
+  inerting: "Inerting",
+  washing: "Washing",
+  heating: "Heating",
+  incinerator: "Incinerator",
+}
+
+/**
+ * Gelen operasyon verisini tam şekle getirir: her operasyon anahtarı ve
+ * altında {fo, mgo} garanti edilir. Eski/eksik/null kayıtlar bu sayede
+ * çökme yerine 0 ile gösterilir.
+ */
+function normalizeOperations(ops: any): ConsumptionOperations {
+  const src = ops && typeof ops === "object" ? ops : {}
+  const out: any = {}
+  for (const key of Object.keys(operationLabels)) {
+    const v = src[key] && typeof src[key] === "object" ? src[key] : {}
+    out[key] = { fo: Number(v.fo) || 0, mgo: Number(v.mgo) || 0 }
+  }
+  return out as ConsumptionOperations
+}
+
 export function ShipFuelConsumptionForm({ operations, onChange }: ShipFuelConsumptionFormProps) {
-  const [localOperations, setLocalOperations] = useState(operations)
+  const [localOperations, setLocalOperations] = useState<ConsumptionOperations>(() =>
+    normalizeOperations(operations),
+  )
 
   const handleOperationChange = (operation: keyof ConsumptionOperations, fuel: "fo" | "mgo", value: string) => {
     const newOperations = {
@@ -41,19 +71,6 @@ export function ShipFuelConsumptionForm({ operations, onChange }: ShipFuelConsum
     }
     setLocalOperations(newOperations)
     onChange({ operations: newOperations })
-  }
-
-  const operationLabels: Record<keyof ConsumptionOperations, string> = {
-    loading: "Yükleme",
-    discharge: "Tahliye",
-    laden: "Yüklü Seyir",
-    ballast: "Boş Seyir",
-    anchor: "Demirde",
-    idle: "Boşta",
-    inerting: "Inerting",
-    washing: "Washing",
-    heating: "Heating",
-    incinerator: "Incinerator",
   }
 
   return (
