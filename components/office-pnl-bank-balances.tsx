@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Building2, Wallet, Edit2, Save } from "lucide-react"
+import { Building2, Wallet, Edit2, Save, ChevronDown, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { OfficePnlBankManager } from "@/components/office-pnl-bank-manager"
 import { BankIcon, bankTypeLabel } from "@/components/bank-icon"
@@ -62,6 +62,8 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
   const [balances, setBalances] = useState<BankBalance[]>([])
   const [banks, setBanks] = useState<PayeeBank[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  // Açılır/kapanır — varsayılan kapalı, tuşa basınca liste görünür.
+  const [isOpen, setIsOpen] = useState(false)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingBank, setEditingBank] = useState<string | null>(null)
   const [companies, setCompanies] = useState<CompanyOpt[]>([])
@@ -184,11 +186,23 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
+          {/* Başlığa tıklayınca aç/kapa */}
+          <button
+            type="button"
+            onClick={() => setIsOpen((v) => !v)}
+            className="flex items-center gap-2 text-lg font-semibold hover:opacity-80 transition-opacity"
+          >
+            {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
             <Building2 className="h-5 w-5" />
             Hesap Bakiyeleri
-          </CardTitle>
-          <div className="flex items-center gap-1">
+            {/* Kapalıyken toplamı küçük bir ipucu olarak göster */}
+            {!isOpen && !isLoading && balances.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground ml-2">
+                (${totalUsd.toLocaleString("en-US", { minimumFractionDigits: 2 })})
+              </span>
+            )}
+          </button>
+          <div className="flex items-center gap-1" style={{ display: isOpen ? undefined : "none" }}>
           <OfficePnlBankManager onChanged={() => { fetchData(); onChanged?.() }} />
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -292,6 +306,7 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
           </div>
         </div>
       </CardHeader>
+      {isOpen && (
       <CardContent>
         {/* Şirket filtresi — sadece birden çok şirkete erişimin varsa */}
         {companies.length > 1 && (
@@ -331,10 +346,10 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
                 </div>
               )}
               <div
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                className="flex items-center justify-between px-3 py-1.5 bg-muted/50 rounded-lg [&_div]:leading-[1.15]"
               >
                 <div className="flex items-center gap-3">
-                  <BankIcon type={balance.bank_type} size={32} />
+                  <BankIcon type={balance.bank_type} size={28} />
                   <span className="font-medium">{balance.bank_name}</span>
                 </div>
                 <div className="flex items-center gap-6">
@@ -397,6 +412,7 @@ export function OfficePnlBankBalances({ reportMonth, refreshKey = 0, onChanged }
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   )
 }

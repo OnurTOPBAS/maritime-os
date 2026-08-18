@@ -23,14 +23,11 @@ export function OfficePnlPageClient() {
       {/* Genel özet (tüm şirketler): Kasa + bu ay gelir/gider/net */}
       <OfficePnlSummary reportMonth={selectedMonth} refreshKey={refreshKey} />
 
-      {/* Month Selector and Bank Balances */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <OfficePnlMonthlySelector
-          selectedMonth={selectedMonth}
-          onMonthChange={setSelectedMonth}
-        />
-        <OfficePnlBankBalances reportMonth={selectedMonth} refreshKey={refreshKey} onChanged={bump} />
-      </div>
+      {/* Ay seçici (artık tam genişlik) */}
+      <OfficePnlMonthlySelector
+        selectedMonth={selectedMonth}
+        onMonthChange={setSelectedMonth}
+      />
 
       {/* Tabs for List and Comparison */}
       <Tabs defaultValue="list" className="space-y-4">
@@ -53,6 +50,9 @@ export function OfficePnlPageClient() {
           <OfficePnlMonthlyComparison currentMonth={selectedMonth} />
         </TabsContent>
       </Tabs>
+
+      {/* Hesap Bakiyeleri en altta — Office PnL'in altında */}
+      <OfficePnlBankBalances reportMonth={selectedMonth} refreshKey={refreshKey} onChanged={bump} />
     </div>
   )
 }
