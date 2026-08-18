@@ -1,12 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { getCurrentUser } from "@/lib/session"
+import { getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
 
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Şirket izolasyonu: kullanıcı yalnızca erişebildiği şirketlerin gemilerinin
+    // sertifikalarını görür. Önceden hiç sınır yoktu (WHERE 1=1).
+    const superAdmin = await isSuperAdmin(user.id)
+    const allowed = await getAccessibleCompanyIds(user.id)
+    if (!superAdmin && allowed.length === 0) {
+      return NextResponse.json({
+        certificates: [],
+        stats: { total: 0, valid: 0, warning: 0, critical: 0, expired: 0, no_date: 0 },
+      })
     }
 
     const searchParams = request.nextUrl.searchParams
@@ -36,6 +48,11 @@ export async function GET(request: NextRequest) {
       JOIN fleets f ON s.fleet_id = f.id
       WHERE 1=1
     `
+
+    // Süper yönetici hariç yalnızca erişilebilir şirketlerin gemileri.
+    if (!superAdmin) {
+      query = sql`${query} AND f.company_id = ANY(${allowed}::uuid[])`
+    }
 
     if (fleetId) {
       query = sql`${query} AND s.fleet_id = ${fleetId}`

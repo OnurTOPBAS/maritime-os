@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { requireAuth } from "@/lib/session"
-import { requireSystemAdmin } from "@/lib/authz"
+import { isSuperAdmin, ForbiddenError } from "@/lib/authz"
 import { sql } from "@/lib/db"
 import { handleApiError } from "@/lib/api-error"
 
@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const requestedUserId = searchParams.get("userId")
 
+    // Başkasının oturum/giriş geçmişini yalnızca süper yönetici görebilir.
     if (requestedUserId && requestedUserId !== user.id) {
-      await requireSystemAdmin(user.id)
+      if (!(await isSuperAdmin(user.id))) throw new ForbiddenError()
     }
     const targetUserId = requestedUserId ?? user.id
 
