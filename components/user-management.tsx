@@ -57,11 +57,25 @@ export function UserManagement({ companyId }: UserManagementProps) {
   const [roles, setRoles] = useState<Role[]>([])
   // "new" = yeni kullanıcı oluştur, "existing" = kayıtlı kullanıcıyı e-posta ile ata
   const [addMode, setAddMode] = useState<"new" | "existing">("new")
+  // Giriş yapan kişi: kendi id'si + süper yönetici mi? Başkasının şifresini
+  // yalnızca süper yönetici değiştirebilir (sunucu da bunu zorlar).
+  const [viewer, setViewer] = useState<{ id: string; superAdmin: boolean } | null>(null)
 
   useEffect(() => {
     loadUsers()
     loadRoles()
   }, [companyId])
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/auth/my-modules").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([me, mods]) => {
+        setViewer({ id: me?.user?.id ?? "", superAdmin: !!mods?.superAdmin })
+      })
+      .catch(() => {})
+  }, [])
 
   const loadUsers = async () => {
     try {
@@ -422,16 +436,18 @@ export function UserManagement({ companyId }: UserManagementProps) {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
-                <div>
-                  <Label htmlFor="edit-password">Yeni Şifre (opsiyonel)</Label>
-                  <Input
-                    id="edit-password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Değiştirmek için yeni şifre girin"
-                  />
-                </div>
+                {(viewer?.superAdmin || (selectedUser && viewer?.id === selectedUser.id)) && (
+                  <div>
+                    <Label htmlFor="edit-password">Yeni Şifre (opsiyonel)</Label>
+                    <Input
+                      id="edit-password"
+                      type="password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      placeholder="Değiştirmek için yeni şifre girin"
+                    />
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="edit-role">Rol</Label>
                   <Select

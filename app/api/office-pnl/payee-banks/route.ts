@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
+import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin, requireAnyModuleAccess } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 
 /**
@@ -11,6 +11,7 @@ import { handleApiError } from "@/lib/api-error"
 export async function GET() {
   try {
     const user = await requireAuth()
+    await requireAnyModuleAccess(user.id, "finance", "view")
     const superAdmin = await isSuperAdmin(user.id)
     const allowed = await getAccessibleCompanyIds(user.id)
 

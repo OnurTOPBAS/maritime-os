@@ -20,7 +20,7 @@ async function requireRecordAccess(userId: string, recordId: string, action: key
   if (!record) throw new NotFoundError("Kayıt bulunamadı")
 
   if (record.company_id) {
-    if (!(await canAccessCompany(userId, record.company_id, action))) {
+    if (!(await canAccessCompany(userId, record.company_id, action, "finance"))) {
       throw new ForbiddenError()
     }
     return
@@ -82,7 +82,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Kayıt başka bir şirkete taşınıyorsa hedef şirkette de yetki aranır;
     // aksi halde kullanıcı kaydı erişemediği bir şirkete aktarabilirdi.
-    if (companyId && !(await canAccessCompany(user.id, companyId, "canEdit"))) {
+    if (companyId && !(await canAccessCompany(user.id, companyId, "canEdit", "finance"))) {
       throw new ForbiddenError()
     }
 

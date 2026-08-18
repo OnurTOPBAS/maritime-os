@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { ModuleGuard } from "@/components/module-guard"
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
@@ -265,6 +266,7 @@ export default function TaskDetailPage() {
   const canEdit = isCreator
 
   return (
+    <ModuleGuard module="tasks">
     <DashboardLayout user={user ?? { name: "", email: "" }}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -505,5 +507,6 @@ export default function TaskDetailPage() {
         </div>
       </div>
     </DashboardLayout>
+    </ModuleGuard>
   )
 }

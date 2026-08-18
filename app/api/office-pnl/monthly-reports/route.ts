@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
+import { requireSystemAdmin, getAccessibleCompanyIds, isSuperAdmin, requireAnyModuleAccess } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 
 
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
+    await requireAnyModuleAccess(user.id, "finance", "view")
 
     // Gelir/gider toplamları yalnızca kullanıcının erişebildiği şirketlerin
     // kayıtlarından hesaplanır (+ kullanıcının kendi şirketsiz kayıtları).

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
+import { requireAnyModuleAccess } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 
 /*
@@ -100,6 +101,7 @@ async function resolveBank(name: string): Promise<{ id: string | null; custom: s
 export async function POST(request: NextRequest) {
   try {
     const user = await requireAuth()
+    await requireAnyModuleAccess(user.id, "finance", "create")
     const body = await request.json()
     const { reportMonth, rows } = body
 

@@ -124,14 +124,15 @@ SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.slug = 'viewer' AND p.action = 'view'
 ON CONFLICT DO NOTHING;
 
--- Operations Manager: operasyon modüllerinde tam yetki, finansta yalnızca görüntüleme
+-- Operations Manager: operasyon modüllerinde tam yetki. Finans (Office PnL)
+-- erişimi YOK — operasyon rolü mali veriyi görmez.
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE r.slug = 'operations_manager'
   AND (
     p.module IN ('ships','fleets','fixtures','voyages','voyage_account',
                  'voyage_calculator','documents','tasks','messages')
-    OR (p.module IN ('certificates','invoices','finance','companies','reports') AND p.action IN ('view','export'))
+    OR (p.module IN ('certificates','invoices','companies','reports') AND p.action IN ('view','export'))
     OR (p.module = 'settings' AND p.action = 'view')
   )
 ON CONFLICT DO NOTHING;

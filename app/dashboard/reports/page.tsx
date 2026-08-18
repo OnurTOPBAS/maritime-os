@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ShipFinancialReport } from "@/components/ship-financial-report"
 import { MonthlyFinancialChart } from "@/components/monthly-financial-chart"
@@ -9,6 +10,7 @@ import { CertificateReportsDashboard } from "@/components/certificate-reports-da
 export default async function ReportsPage() {
   const user = await requireAuth()
 
+  await guardPage(user.id, "reports")
   return (
     <DashboardLayout user={user}>
       <div className="space-y-6">

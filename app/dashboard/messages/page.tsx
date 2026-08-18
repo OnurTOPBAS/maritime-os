@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { MessagingCenter } from "@/components/messaging-center"
 import { NotificationCenter } from "@/components/notification-center"
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 export default async function MessagesPage() {
   const user = await requireAuth()
 
+  await guardPage(user.id, "messages")
   return (
     <DashboardLayout user={user}>
       <div className="p-6">

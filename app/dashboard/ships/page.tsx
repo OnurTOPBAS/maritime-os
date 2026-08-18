@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { AllShipsList } from "@/components/all-ships-list"
 import { PageHeader } from "@/components/page-header"
@@ -7,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default async function AllShipsPage() {
   const user = await requireAuth()
+  await guardPage(user.id, "ships")
 
   return (
     <DashboardLayout user={user}>

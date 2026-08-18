@@ -260,6 +260,53 @@ async function roleHasPermission(
   return false
 }
 
+/**
+ * Kullanıcının erişebildiği TÜM şirketlerdeki rollerinin izin birleşimi
+ * ("modül.eylem" kümesi). Menü/arayüz kapılaması için. Süper yönetici için
+ * özel "*" işareti döner (her şeye erişim).
+ */
+export async function getAccessibleModuleActions(userId: string): Promise<Set<string>> {
+  if (await isSuperAdmin(userId)) return new Set(["*"])
+
+  const companyIds = await getAccessibleCompanyIds(userId)
+  const result = new Set<string>()
+  const roleCache = new Map<string, Set<string>>()
+
+  for (const cid of companyIds) {
+    const role = await getUserRole(userId, cid)
+    if (!role) continue
+    let perms = roleCache.get(role)
+    if (!perms) {
+      perms = await loadRolePermissions(role)
+      roleCache.set(role, perms)
+    }
+    for (const p of perms) result.add(p)
+  }
+  return result
+}
+
+/**
+ * Kullanıcı, erişebildiği HERHANGİ bir şirkette bu modül/eylem yetkisine sahip
+ * mi? (Şirketler arası sayfalar için — ör. Office PnL.) Değilse ForbiddenError.
+ */
+export async function requireAnyModuleAccess(
+  userId: string,
+  module: PermissionModule,
+  action: PermissionAction = "view",
+): Promise<void> {
+  if (await isSuperAdmin(userId)) return
+  const companyIds = await getAccessibleCompanyIds(userId)
+  for (const cid of companyIds) {
+    if (await canAccessModule(userId, cid, module, action)) return
+  }
+  throw new ForbiddenError()
+}
+
+/** Bir izin kümesinde modülün görüntüleme yetkisi var mı (menü kapılaması). */
+export function moduleActionAllowed(perms: Set<string>, module: string, action = "view"): boolean {
+  return perms.has("*") || perms.has(`*.${action}`) || perms.has(`${module}.${action}`)
+}
+
 /** Modül bazlı sessiz kontrol. Tercih edilen yeni API. */
 export async function canAccessModule(
   userId: string,

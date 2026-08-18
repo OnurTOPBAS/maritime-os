@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { CompanyList } from "@/components/company-list"
 import { sql } from "@/lib/db"
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic"
 export default async function CompaniesPage() {
   const user = await requireAuth()
 
+  await guardPage(user.id, "companies")
   // Erişim sınırı: kullanıcı yalnızca sahibi/üyesi olduğu şirketleri görür.
   // Süper yönetici hepsini. (Önceden tüm şirketler herkese listeleniyordu.)
   const superAdmin = await isSuperAdmin(user.id)

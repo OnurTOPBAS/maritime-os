@@ -1,12 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { getAccessibleCompanyIds, requireCompanyAccess } from "@/lib/authz"
+import { getAccessibleCompanyIds, requireCompanyAccess, requireModuleAccess, requireAnyModuleAccess } from "@/lib/authz"
 import { handleApiError } from "@/lib/api-error"
 
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
+
+    // Office PnL bir finans modülüdür: finance.view olmadan erişilemez.
+    await requireAnyModuleAccess(user.id, "finance", "view")
 
     const { searchParams } = new URL(request.url)
     const companyId = searchParams.get("companyId")
@@ -109,9 +112,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Payee zorunludur" }, { status: 400 })
     }
 
-    // Kayıt bir şirkete bağlanıyorsa o şirkette yazma yetkisi aranır.
+    // Kayıt bir şirkete bağlanıyorsa o şirkette finans yazma yetkisi aranır;
+    // bağlanmıyorsa en az bir şirkette finance.create yetkisi olmalı.
     if (companyId) {
-      await requireCompanyAccess(user.id, companyId, "canCreate")
+      await requireModuleAccess(user.id, companyId, "finance", "create")
+    } else {
+      await requireAnyModuleAccess(user.id, "finance", "create")
     }
 
     let calculatedPriceUsd = priceUsd

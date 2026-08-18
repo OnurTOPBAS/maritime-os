@@ -73,6 +73,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     if (password) {
+      // Başka bir kullanıcının şifresini yalnızca süper yönetici değiştirebilir.
+      // Şirket admini/yöneticisi bile başkasının şifresini sıfırlayamaz (hesap
+      // ele geçirme riski). Herkes yalnızca KENDİ şifresini değiştirebilir.
+      if (!superAdmin && targetId !== actor.id) {
+        return NextResponse.json(
+          { error: "Başka bir kullanıcının şifresini yalnızca süper yönetici değiştirebilir" },
+          { status: 403 },
+        )
+      }
       const passwordHash = await bcrypt.hash(password, 12)
       await sql`UPDATE users SET password_hash = ${passwordHash}, updated_at = CURRENT_TIMESTAMP WHERE id = ${targetId}`
     }

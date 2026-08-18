@@ -1,37 +1,41 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
-import { isSuperAdmin } from "@/lib/authz"
+import { getAccessibleCompanyIds, requireSystemAdmin } from "@/lib/authz"
+import { handleApiError } from "@/lib/api-error"
 
 export async function GET() {
   try {
     const user = await requireAuth()
 
-    // Süper yönetici tüm şirketleri görür.
-    const companies = (await isSuperAdmin(user.id))
-      ? await sql`SELECT c.* FROM companies c ORDER BY c.created_at DESC`
-      : await sql`
-          SELECT DISTINCT c.* FROM companies c
-          LEFT JOIN company_team_members ctm ON c.id = ctm.company_id AND ctm.user_id = ${user.id}
-          WHERE c.owner_id = ${user.id} OR ctm.user_id IS NOT NULL
-          ORDER BY c.created_at DESC
-        `
+    // Erişilebilir şirketler (süper yönetici -> tümü). Hem user_permissions
+    // hem company_team_members üyeliklerini kapsar; tek bir yerden çözülür.
+    const ids = await getAccessibleCompanyIds(user.id)
+    if (ids.length === 0) return NextResponse.json([])
 
+    const companies = await sql`
+      SELECT c.* FROM companies c
+      WHERE c.id = ANY(${ids})
+      ORDER BY c.created_at DESC
+    `
     return NextResponse.json(companies)
   } catch (error) {
-    console.error("[v0] Get companies error:", error)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    return handleApiError(error, "Şirketler")
   }
 }
 
 export async function POST(request: Request) {
   try {
     const user = await requireAuth()
+
+    // SABİT KURAL: Şirket oluşturma yalnızca süper yönetici veya admin/owner
+    // içindir; hangi modül izni verilirse verilsin başka rol şirket oluşturamaz.
+    await requireSystemAdmin(user.id)
+
     const { name, address, phone, email, tax_number } = await request.json()
 
-
     if (!name) {
-      return NextResponse.json({ error: "Company name is required" }, { status: 400 })
+      return NextResponse.json({ error: "Şirket adı gerekli" }, { status: 400 })
     }
 
     const newCompanies = await sql`
@@ -42,10 +46,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(newCompanies[0], { status: 201 })
   } catch (error) {
-    console.error("[v0] Create company error:", error)
-    if (error instanceof Error && error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    return handleApiError(error, "Şirket oluşturma")
   }
 }

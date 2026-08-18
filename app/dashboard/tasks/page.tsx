@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { ModuleGuard } from "@/components/module-guard"
 import { Plus, Search, Database, CheckCircle2, Clock, AlertCircle, ListTodo } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -195,6 +196,7 @@ export default function TasksPage() {
   }
 
   return (
+    <ModuleGuard module="tasks">
     <DashboardLayout user={user || { name: "", email: "" }}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -352,5 +354,6 @@ export default function TasksPage() {
         </Dialog>
       </div>
     </DashboardLayout>
+    </ModuleGuard>
   )
 }

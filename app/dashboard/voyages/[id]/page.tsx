@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VoyageDetailView } from "@/components/voyage-detail-view"
 import { sql } from "@/lib/db"
@@ -12,6 +13,7 @@ function isValidUUID(id: string): boolean {
 
 export default async function VoyagePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
+  await guardPage(user.id, "voyages")
   if (!user) redirect("/auth/signin")
 
   if (!isValidUUID((await params).id)) {

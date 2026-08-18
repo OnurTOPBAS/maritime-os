@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { ModuleGuard } from "@/components/module-guard"
 import { useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { DashboardLayout } from "@/components/dashboard-layout"
@@ -153,6 +154,7 @@ export default function SettingsPage() {
   }
 
   return (
+    <ModuleGuard module="settings">
     <DashboardLayout user={user}>
       <div className="space-y-6">
         <div>
@@ -402,5 +404,6 @@ export default function SettingsPage() {
         </Tabs>
       </div>
     </DashboardLayout>
+    </ModuleGuard>
   )
 }

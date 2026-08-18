@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { FixtureList } from "@/components/fixture-list"
 import { FixturesDashboard } from "@/components/fixtures-dashboard"
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic"
 export default async function FixturesPage() {
   const user = await requireAuth()
 
+  await guardPage(user.id, "fixtures")
   return (
     <DashboardLayout user={user}>
       <div className="space-y-6">

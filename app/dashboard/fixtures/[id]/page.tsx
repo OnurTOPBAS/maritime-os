@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { FixtureDetailView } from "@/components/fixture-detail-view"
 import { sql } from "@/lib/db"
@@ -7,6 +8,7 @@ import { sql } from "@/lib/db"
 
 export default async function FixturePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
+  await guardPage(user.id, "fixtures")
   if (!user) redirect("/auth/signin")
 
   const fixtures = await sql`

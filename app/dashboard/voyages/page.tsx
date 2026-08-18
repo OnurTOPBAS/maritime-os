@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { VoyageList } from "@/components/voyage-list"
 import { PageHeader } from "@/components/page-header"
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic"
 export default async function VoyagesPage() {
   const user = await requireAuth()
 
+  await guardPage(user.id, "voyages")
   return (
     <DashboardLayout user={user}>
       <div className="space-y-6">

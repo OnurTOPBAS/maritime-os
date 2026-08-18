@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { UsersPageClient } from "@/components/users-page-client"
 import { getUserCompanies } from "@/lib/permissions"
@@ -10,6 +11,8 @@ export default async function UsersPage() {
   if (!user) {
     redirect("/auth/signin")
   }
+
+  await guardPage(user.id, "users")
 
   // Yalnızca kullanıcının erişebildiği şirketler (süper yönetici hepsini).
   const companies = await getUserCompanies(user.id)

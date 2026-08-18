@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ShipDetailView } from "@/components/ship-detail-view"
@@ -15,6 +16,8 @@ export default async function ShipDetailPage({ params }: { params: Promise<{ id:
   if (!user) {
     redirect("/auth/signin")
   }
+
+  await guardPage(user.id, "ships")
 
   if (!id || !isValidUUID(id)) {
     redirect("/dashboard/ships")

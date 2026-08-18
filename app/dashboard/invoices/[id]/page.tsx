@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { sql } from "@/lib/db"
 import { redirect } from "next/navigation"
@@ -9,6 +10,7 @@ import { DocumentList } from "@/components/document-list"
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireAuth()
+  await guardPage(user.id, "invoices")
   const { id } = await params
 
   const invoices = await sql`

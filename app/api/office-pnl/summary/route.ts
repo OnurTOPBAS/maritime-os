@@ -3,7 +3,7 @@ import { sql } from "@/lib/db"
 import { requireAuth } from "@/lib/session"
 import { handleApiError } from "@/lib/api-error"
 import { computeTotalKasa } from "@/lib/office-balances"
-import { getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
+import { getAccessibleCompanyIds, isSuperAdmin, requireAnyModuleAccess } from "@/lib/authz"
 
 /**
  * Office PnL özeti: tüm şirketler birlikte.
@@ -16,6 +16,7 @@ import { getAccessibleCompanyIds, isSuperAdmin } from "@/lib/authz"
 export async function GET(request: NextRequest) {
   try {
     const user = await requireAuth()
+    await requireAnyModuleAccess(user.id, "finance", "view")
 
     const { searchParams } = new URL(request.url)
     const month = searchParams.get("reportMonth") || new Date().toISOString().slice(0, 7)

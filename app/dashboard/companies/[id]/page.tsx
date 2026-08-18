@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { CompanyDetailView } from "@/components/company-detail-view"
@@ -15,6 +16,8 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   if (!user) {
     redirect("/auth/signin")
   }
+
+  await guardPage(user.id, "companies")
 
   const superAdmin = await isSuperAdmin(user.id)
   const companies = superAdmin

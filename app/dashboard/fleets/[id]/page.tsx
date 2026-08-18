@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getCurrentUser } from "@/lib/session"
+import { guardPage } from "@/lib/page-guard"
 import { sql } from "@/lib/db"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { FleetDetailView } from "@/components/fleet-detail-view"
@@ -14,6 +15,8 @@ export default async function FleetDetailPage({ params }: { params: Promise<{ id
   if (!user) {
     redirect("/auth/signin")
   }
+
+  await guardPage(user.id, "fleets")
 
   // Get fleet with company info - allow both owner and team members
   const fleets = await sql`

@@ -1,6 +1,7 @@
 "use client"
 
 import { DashboardLayout } from "@/components/dashboard-layout"
+import { ModuleGuard } from "@/components/module-guard"
 import { VoyageCalculatorWizard } from "@/components/voyage-calculator-wizard"
 import { use, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -33,8 +34,10 @@ export default function VoyageCalculatorDetailPage({ params }: { params: Promise
   }
 
   return (
+    <ModuleGuard module="voyage_calculator">
     <DashboardLayout user={user}>
       <VoyageCalculatorWizard calculationId={resolvedParams.calculationId} />
     </DashboardLayout>
+    </ModuleGuard>
   )
 }
