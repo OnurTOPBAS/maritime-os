@@ -53,7 +53,7 @@ function ResetPasswordForm() {
         body: JSON.stringify({ token, password }),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({} as any))
 
       if (response.ok) {
         setMessage(data.message)

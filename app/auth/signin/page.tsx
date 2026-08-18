@@ -30,10 +30,12 @@ export default function SignInPage() {
         body: JSON.stringify({ email, password }),
       })
 
-      const data = await response.json()
+      // JSON olmayan yanıtta (ör. vekil 502) atmasın diye güvenli parse.
+      const data = await response.json().catch(() => ({} as any))
 
       if (!response.ok) {
-        setError("Geçersiz email veya şifre")
+        // Sunucunun döndüğü mesajı göster (429 rate-limit dahil).
+        setError(data.error || "Geçersiz email veya şifre")
       } else {
         window.location.href = "/dashboard"
       }

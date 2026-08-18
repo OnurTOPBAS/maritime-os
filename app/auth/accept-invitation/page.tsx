@@ -54,7 +54,7 @@ function AcceptInvitationForm() {
         body: JSON.stringify({ token, name, password }),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({} as any))
 
       if (response.ok) {
         setMessage(data.message)

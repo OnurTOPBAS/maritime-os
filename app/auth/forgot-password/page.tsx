@@ -29,7 +29,7 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email }),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({} as any))
 
       if (response.ok) {
         setMessage(data.message)
